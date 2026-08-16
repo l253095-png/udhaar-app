@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../services/api_service.dart';
 import 'login_screen.dart';
+import 'add_customer_screen.dart';
 
 class OwnerDashboard extends StatefulWidget {
   const OwnerDashboard({super.key});
@@ -95,6 +96,16 @@ class _OwnerDashboardState extends State<OwnerDashboard> {
         title: const Text('Owner Dashboard'),
         actions: [
           IconButton(
+            icon: const Icon(Icons.person_add),
+            tooltip: 'Add Customer',
+            onPressed: () async {
+              final added = await Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const AddCustomerScreen()),
+              );
+              if (added == true) _load();
+            },
+          ),
+          IconButton(
             icon: const Icon(Icons.logout),
             onPressed: () async {
               await ApiService.logout();
@@ -111,7 +122,23 @@ class _OwnerDashboardState extends State<OwnerDashboard> {
       ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
-          : RefreshIndicator(
+          : _customers.isEmpty
+              ? Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Icon(Icons.people_outline, size: 64, color: Colors.grey),
+                      const SizedBox(height: 12),
+                      const Text('No customers yet'),
+                      const SizedBox(height: 8),
+                      const Text('Tap the person-add icon above to add your first customer,',
+                          style: TextStyle(color: Colors.grey)),
+                      const Text('or use "Sync from Google Sheet" below.',
+                          style: TextStyle(color: Colors.grey)),
+                    ],
+                  ),
+                )
+              : RefreshIndicator(
               onRefresh: _load,
               child: ListView.builder(
                 itemCount: _customers.length,
