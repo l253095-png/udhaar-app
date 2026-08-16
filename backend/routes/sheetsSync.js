@@ -8,7 +8,7 @@ const router = express.Router();
 router.use(authenticate, ownerOnly); // sync is Owner-only, always
 
 // Expected Google Sheet columns (row 1 = headers):
-// A: Name | B: HouseNumber | C: Type (Udhaar/Wasooli) | D: Amount | E: Note | F: Synced
+// A: Name | B: Phone | C: Type (Udhaar/Wasooli) | D: Amount | E: Note | F: Synced
 const SHEET_RANGE = 'Sheet1!A2:F1000';
 
 function getSheetsClient() {
@@ -38,17 +38,17 @@ router.get('/preview', async (req, res) => {
     const preview = [];
 
     rows.forEach((row, index) => {
-      const [name, houseNumber, type, amount, note, synced] = row;
+      const [name, phone, type, amount, note, synced] = row;
       if (synced === 'Synced' || !name || !amount) return; // skip already-synced or empty rows
 
       const customer = db
-        .prepare('SELECT * FROM customers WHERE name = ? AND house_number = ?')
-        .get(name, houseNumber);
+        .prepare('SELECT * FROM customers WHERE name = ? AND phone = ?')
+        .get(name, phone);
 
       preview.push({
         rowNumber: index + 2, // +2 because range starts at row 2
         name,
-        houseNumber,
+        phone,
         type: (type || '').toLowerCase(),
         amount: parseFloat(amount),
         note: note || null,
@@ -81,7 +81,7 @@ router.post('/confirm', async (req, res) => {
     );
     const updateBalance = db.prepare('UPDATE customers SET balance = balance + ? WHERE id = ?');
     const insertCustomer = db.prepare(
-      'INSERT INTO customers (name, house_number) VALUES (?, ?)'
+      'INSERT INTO customers (name, phone) VALUES (?, ?)'
     );
 
     let syncedCount = 0;
@@ -94,7 +94,7 @@ router.post('/confirm', async (req, res) => {
 
         // Auto-create customer if it doesn't exist yet (Owner already confirmed this in preview step)
         if (!customerId) {
-          const info = insertCustomer.run(row.name, row.houseNumber || null);
+          const info = insertCustomer.run(row.name, row.phone || '');
           customerId = info.lastInsertRowid;
           newCustomerCount++;
         }

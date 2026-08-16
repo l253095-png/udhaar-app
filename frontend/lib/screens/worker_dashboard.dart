@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 import '../services/api_service.dart';
 import 'login_screen.dart';
+import 'customer_detail_screen.dart';
 
 /// Worker can only VIEW customers, balances, and transaction history.
-/// No add / edit / delete buttons exist anywhere on this screen.
+/// No add / edit / delete / credit / debit controls exist anywhere on this screen.
 class WorkerDashboard extends StatefulWidget {
   const WorkerDashboard({super.key});
 
@@ -61,7 +62,7 @@ class _WorkerDashboardState extends State<WorkerDashboard> {
                   return ListTile(
                     leading: const Icon(Icons.person),
                     title: Text(c['name']),
-                    subtitle: Text('House: ${c['house_number'] ?? '-'}'),
+                    subtitle: Text(c['phone'] ?? ''),
                     trailing: Text(
                       'Rs ${balance.toStringAsFixed(0)}',
                       style: TextStyle(
@@ -69,6 +70,13 @@ class _WorkerDashboardState extends State<WorkerDashboard> {
                         color: balance > 0 ? Colors.red : Colors.green,
                       ),
                     ),
+                    onTap: () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => CustomerDetailScreen(customerId: c['id'], readOnly: true),
+                        ),
+                      );
+                    },
                   );
                 },
               ),

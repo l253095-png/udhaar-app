@@ -23,31 +23,29 @@ router.get('/:id', (req, res) => {
   res.json({ ...customer, transactions });
 });
 
-// POST /api/customers - Owner only
+// POST /api/customers - Owner only. Only Name + Phone required.
 router.post('/', ownerOnly, (req, res) => {
-  const { name, phone, house_number, address } = req.body;
-  if (!name) return res.status(400).json({ error: 'Customer name is required' });
+  const { name, phone } = req.body;
+  if (!name || !phone) {
+    return res.status(400).json({ error: 'Customer name and phone number are required' });
+  }
 
   const info = db
-    .prepare('INSERT INTO customers (name, phone, house_number, address) VALUES (?, ?, ?, ?)')
-    .run(name, phone || null, house_number || null, address || null);
+    .prepare('INSERT INTO customers (name, phone) VALUES (?, ?)')
+    .run(name, phone);
 
-  res.status(201).json({ id: info.lastInsertRowid, name, phone, house_number, address, balance: 0 });
+  res.status(201).json({ id: info.lastInsertRowid, name, phone, balance: 0 });
 });
 
 // PUT /api/customers/:id - Owner only
 router.put('/:id', ownerOnly, (req, res) => {
-  const { name, phone, house_number, address } = req.body;
+  const { name, phone } = req.body;
   const existing = db.prepare('SELECT * FROM customers WHERE id = ?').get(req.params.id);
   if (!existing) return res.status(404).json({ error: 'Customer not found' });
 
-  db.prepare(
-    'UPDATE customers SET name = ?, phone = ?, house_number = ?, address = ? WHERE id = ?'
-  ).run(
+  db.prepare('UPDATE customers SET name = ?, phone = ? WHERE id = ?').run(
     name || existing.name,
-    phone ?? existing.phone,
-    house_number ?? existing.house_number,
-    address ?? existing.address,
+    phone || existing.phone,
     req.params.id
   );
 

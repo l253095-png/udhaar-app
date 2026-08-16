@@ -19,9 +19,7 @@ db.exec(`
   CREATE TABLE IF NOT EXISTS customers (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     name TEXT NOT NULL,
-    phone TEXT,
-    house_number TEXT,
-    address TEXT,
+    phone TEXT NOT NULL,
     balance REAL DEFAULT 0,
     created_at TEXT DEFAULT (datetime('now'))
   );

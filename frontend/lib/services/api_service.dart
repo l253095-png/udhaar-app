@@ -58,11 +58,11 @@ class ApiService {
     return jsonDecode(res.body);
   }
 
-  static Future<void> addCustomer(String name, String phone, String houseNumber, String address) async {
+  static Future<void> addCustomer(String name, String phone) async {
     final res = await http.post(
       Uri.parse('$baseUrl/api/customers'),
       headers: await _headers(),
-      body: jsonEncode({'name': name, 'phone': phone, 'house_number': houseNumber, 'address': address}),
+      body: jsonEncode({'name': name, 'phone': phone}),
     );
     if (res.statusCode != 201) {
       throw Exception(jsonDecode(res.body)['error'] ?? 'Failed to add customer');

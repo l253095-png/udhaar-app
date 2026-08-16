@@ -1,0 +1,195 @@
+import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
+import '../services/api_service.dart';
+
+/// Shows one customer's balance + full transaction history.
+/// If [readOnly] is true (Worker), the Credit/Debit buttons are hidden.
+class CustomerDetailScreen extends StatefulWidget {
+  final int customerId;
+  final bool readOnly;
+
+  const CustomerDetailScreen({super.key, required this.customerId, this.readOnly = false});
+
+  @override
+  State<CustomerDetailScreen> createState() => _CustomerDetailScreenState();
+}
+
+class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
+  Map<String, dynamic>? _customer;
+  bool _loading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    setState(() => _loading = true);
+    try {
+      final data = await ApiService.getCustomerDetail(widget.customerId);
+      setState(() => _customer = data);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed to load: $e')));
+      }
+    } finally {
+      setState(() => _loading = false);
+    }
+  }
+
+  Future<void> _showEntryDialog(String type) async {
+    final amountController = TextEditingController();
+    final noteController = TextEditingController();
+    final isDebit = type == 'udhaar'; // udhaar = customer owes more (debit)
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: Text(isDebit ? 'Add Udhaar (Debit)' : 'Add Wasooli (Credit)'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: amountController,
+              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              autofocus: true,
+              decoration: const InputDecoration(labelText: 'Amount (Rs)', border: OutlineInputBorder()),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: noteController,
+              decoration: const InputDecoration(labelText: 'Note (optional)', border: OutlineInputBorder()),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: isDebit ? Colors.red : Colors.green),
+            onPressed: () => Navigator.pop(context, true),
+            child: Text(isDebit ? 'Add Debit' : 'Add Credit'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return;
+
+    final amount = double.tryParse(amountController.text.trim());
+    if (amount == null || amount <= 0) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Enter a valid amount')));
+      return;
+    }
+
+    try {
+      await ApiService.addTransaction(widget.customerId, type, amount, noteController.text.trim());
+      _load();
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed: $e')));
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_loading) {
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    }
+    if (_customer == null) {
+      return const Scaffold(body: Center(child: Text('Customer not found')));
+    }
+
+    final balance = (_customer!['balance'] as num).toDouble();
+    final transactions = _customer!['transactions'] as List<dynamic>;
+    final dateFormat = DateFormat('dd MMM, hh:mm a');
+
+    return Scaffold(
+      appBar: AppBar(title: Text(_customer!['name'])),
+      body: RefreshIndicator(
+        onRefresh: _load,
+        child: Column(
+          children: [
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(20),
+              color: balance > 0 ? Colors.red.shade50 : Colors.green.shade50,
+              child: Column(
+                children: [
+                  Text(_customer!['phone'] ?? '', style: const TextStyle(color: Colors.grey)),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Rs ${balance.abs().toStringAsFixed(0)}',
+                    style: TextStyle(
+                      fontSize: 32,
+                      fontWeight: FontWeight.bold,
+                      color: balance > 0 ? Colors.red : Colors.green,
+                    ),
+                  ),
+                  Text(balance > 0 ? 'Baqaya (Outstanding)' : 'Clear / Advance', style: const TextStyle(color: Colors.grey)),
+                ],
+              ),
+            ),
+            if (!widget.readOnly)
+              Padding(
+                padding: const EdgeInsets.all(12.0),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: ElevatedButton.icon(
+                        style: ElevatedButton.styleFrom(backgroundColor: Colors.red, foregroundColor: Colors.white, padding: const EdgeInsets.symmetric(vertical: 14)),
+                        onPressed: () => _showEntryDialog('udhaar'),
+                        icon: const Icon(Icons.remove_circle_outline),
+                        label: const Text('Debit (Udhaar)'),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: ElevatedButton.icon(
+                        style: ElevatedButton.styleFrom(backgroundColor: Colors.green, foregroundColor: Colors.white, padding: const EdgeInsets.symmetric(vertical: 14)),
+                        onPressed: () => _showEntryDialog('wasooli'),
+                        icon: const Icon(Icons.add_circle_outline),
+                        label: const Text('Credit (Wasooli)'),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            const Divider(height: 1),
+            Expanded(
+              child: transactions.isEmpty
+                  ? const Center(child: Text('No transactions yet', style: TextStyle(color: Colors.grey)))
+                  : ListView.builder(
+                      itemCount: transactions.length,
+                      itemBuilder: (context, index) {
+                        final t = transactions[index];
+                        final isDebit = t['type'] == 'udhaar';
+                        DateTime? parsedDate;
+                        try {
+                          parsedDate = DateTime.parse(t['created_at']);
+                        } catch (_) {}
+                        return ListTile(
+                          leading: Icon(
+                            isDebit ? Icons.arrow_upward : Icons.arrow_downward,
+                            color: isDebit ? Colors.red : Colors.green,
+                          ),
+                          title: Text(isDebit ? 'Udhaar (Debit)' : 'Wasooli (Credit)'),
+                          subtitle: Text(
+                            [
+                              if (t['note'] != null && t['note'].toString().isNotEmpty) t['note'],
+                              if (parsedDate != null) dateFormat.format(parsedDate),
+                            ].join(' · '),
+                          ),
+                          trailing: Text(
+                            'Rs ${(t['amount'] as num).toStringAsFixed(0)}',
+                            style: TextStyle(fontWeight: FontWeight.bold, color: isDebit ? Colors.red : Colors.green),
+                          ),
+                        );
+                      },
+                    ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}

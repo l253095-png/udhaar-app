@@ -11,14 +11,12 @@ class AddCustomerScreen extends StatefulWidget {
 class _AddCustomerScreenState extends State<AddCustomerScreen> {
   final _nameController = TextEditingController();
   final _phoneController = TextEditingController();
-  final _houseController = TextEditingController();
-  final _addressController = TextEditingController();
   bool _saving = false;
   String? _error;
 
   Future<void> _save() async {
-    if (_nameController.text.trim().isEmpty) {
-      setState(() => _error = 'Customer name is required');
+    if (_nameController.text.trim().isEmpty || _phoneController.text.trim().isEmpty) {
+      setState(() => _error = 'Name and phone number are both required');
       return;
     }
     setState(() {
@@ -26,14 +24,9 @@ class _AddCustomerScreenState extends State<AddCustomerScreen> {
       _error = null;
     });
     try {
-      await ApiService.addCustomer(
-        _nameController.text.trim(),
-        _phoneController.text.trim(),
-        _houseController.text.trim(),
-        _addressController.text.trim(),
-      );
+      await ApiService.addCustomer(_nameController.text.trim(), _phoneController.text.trim());
       if (!mounted) return;
-      Navigator.pop(context, true); // return true so dashboard knows to refresh
+      Navigator.pop(context, true);
     } catch (e) {
       setState(() => _error = e.toString().replaceAll('Exception: ', ''));
     } finally {
@@ -57,17 +50,7 @@ class _AddCustomerScreenState extends State<AddCustomerScreen> {
             TextField(
               controller: _phoneController,
               keyboardType: TextInputType.phone,
-              decoration: const InputDecoration(labelText: 'Phone / WhatsApp Number', border: OutlineInputBorder()),
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: _houseController,
-              decoration: const InputDecoration(labelText: 'House Number', border: OutlineInputBorder()),
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: _addressController,
-              decoration: const InputDecoration(labelText: 'Address', border: OutlineInputBorder()),
+              decoration: const InputDecoration(labelText: 'Phone Number *', border: OutlineInputBorder()),
             ),
             const SizedBox(height: 8),
             if (_error != null) Text(_error!, style: const TextStyle(color: Colors.red)),

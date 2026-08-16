@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../services/api_service.dart';
 import 'login_screen.dart';
 import 'add_customer_screen.dart';
+import 'customer_detail_screen.dart';
 
 class OwnerDashboard extends StatefulWidget {
   const OwnerDashboard({super.key});
@@ -64,7 +65,7 @@ class _OwnerDashboardState extends State<OwnerDashboard> {
                 final r = rows[i];
                 return ListTile(
                   dense: true,
-                  title: Text('${r['name']} (${r['houseNumber'] ?? '-'})'),
+                  title: Text('${r['name']} (${r['phone'] ?? '-'})'),
                   subtitle: Text('${r['type']} - Rs ${r['amount']}${r['isNewCustomer'] ? '  [NEW]' : ''}'),
                 );
               },
@@ -148,11 +149,17 @@ class _OwnerDashboardState extends State<OwnerDashboard> {
                   return ListTile(
                     leading: const Icon(Icons.person),
                     title: Text(c['name']),
-                    subtitle: Text('House: ${c['house_number'] ?? '-'}  |  ${c['phone'] ?? ''}'),
+                    subtitle: Text(c['phone'] ?? ''),
                     trailing: Text(
                       'Rs ${balance.toStringAsFixed(0)}',
                       style: TextStyle(fontWeight: FontWeight.bold, color: balance > 0 ? Colors.red : Colors.green),
                     ),
+                    onTap: () async {
+                      await Navigator.of(context).push(
+                        MaterialPageRoute(builder: (_) => CustomerDetailScreen(customerId: c['id'])),
+                      );
+                      _load(); // refresh balances after returning from detail screen
+                    },
                   );
                 },
               ),
