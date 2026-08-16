@@ -2,11 +2,16 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
-/// Central place for talking to the Shop PC backend.
-/// baseUrl will be your Cloudflare Tunnel URL, e.g.
-/// https://shop-udhaar.yourdomain.com
+/// Central place for talking to the backend.
+///
+/// Right now this points at your own laptop's backend (localhost),
+/// since both the app and the backend are running on the same machine.
+///
+/// Later, when the backend moves to the Shop PC + Cloudflare Tunnel,
+/// this ONE line is all you'll need to change:
+///   static const String baseUrl = 'https://your-tunnel-url.com';
 class ApiService {
-  static const String baseUrl = 'https://shop-udhaar.yourdomain.com';
+  static const String baseUrl = 'http://localhost:3000';
 
   static Future<String?> getToken() async {
     final prefs = await SharedPreferences.getInstance();
