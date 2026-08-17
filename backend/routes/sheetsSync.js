@@ -14,9 +14,25 @@ try {
   // WhatsApp module not installed yet - sync still works, just no messages sent
 }
 
-// Expected Google Sheet columns (row 1 = headers):
-// A: Name | B: Phone | C: Type (Udhaar/Wasooli) | D: Amount | E: Note | F: Status (Synced/Pending)
-const SHEET_RANGE = 'Sheet1!A2:F1000';
+// ============================================================
+// SHEET LAYOUT (matches the owner's real daily ledger sheet)
+// Each day has its own tab, named like "3.4.2026" (d.M.yyyy)
+// ============================================================
+const BLOCKS = [
+  // Udhaar (debit) - customer took goods, owes money
+  { range: 'A2:B50', nameCol: 0, amountCol: 1, type: 'udhaar', key: 'udhaar1' },
+  { range: 'A52:B71', nameCol: 0, amountCol: 1, type: 'udhaar', key: 'udhaar2' },
+  // Wasooli (credit) - customer paid / cleared their khata
+  { range: 'I2:J50', nameCol: 0, amountCol: 1, type: 'wasooli', key: 'wasooli1' },
+  { range: 'M2:N16', nameCol: 0, amountCol: 1, type: 'wasooli', key: 'wasooli2' },
+];
+
+// Single running-total cells that feed the 3 dashboard expense modules
+const SINGLE_CELLS = {
+  monthly_expense: 'D51', // "Daily Expense" cell - daily figure, rolled up into Monthly Expense screen
+  daily_online: 'J72',
+  daily_main_branch_purchase: 'N24',
+};
 
 function getSheetsClient() {
   const keyPath =
@@ -30,6 +46,19 @@ function getSheetsClient() {
   return google.sheets({ version: 'v4', auth });
 }
 
+/** Today's tab name in the sheet's own format, e.g. "3.4.2026" (no leading zeros). */
+function todayTabName() {
+  const now = new Date();
+  return `${now.getDate()}.${now.getMonth() + 1}.${now.getFullYear()}`;
+}
+
+/** Converts a tab name like "3.4.2026" into an ISO date "2026-04-03" for storage. */
+function tabNameToIsoDate(tabName) {
+  const [d, m, y] = tabName.split('.').map((n) => parseInt(n, 10));
+  if (!d || !m || !y) return new Date().toISOString().slice(0, 10);
+  return `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+}
+
 function notify(customer, type, amount, newBalance) {
   const typeLabel = type === 'udhaar' ? 'Udhaar (Debit)' : 'Wasooli (Credit)';
   const message =
@@ -40,131 +69,150 @@ function notify(customer, type, amount, newBalance) {
   sendWhatsAppMessage(customer.phone, message).catch(() => {});
 }
 
-/** Normalize a name into lowercase word tokens for fuzzy comparison. */
 function tokenize(name) {
-  return (name || '')
-    .toLowerCase()
-    .split(/\s+/)
-    .filter((w) => w.length > 1);
+  return (name || '').toLowerCase().split(/\s+/).filter((w) => w.length > 1);
 }
 
-/**
- * Finds the best fuzzy match for a sheet name among existing customers,
- * based on shared name keywords (e.g. "Irtaza Shahid" vs "Irtaza Uncle" -> shares "irtaza").
- * Returns the best-matching customer or null if nothing overlaps.
- */
 function findBestFuzzyMatch(sheetName, allCustomers) {
   const sheetWords = tokenize(sheetName);
   if (sheetWords.length === 0) return null;
-
   let best = null;
   let bestScore = 0;
-
   for (const customer of allCustomers) {
-    const customerWords = tokenize(customer.name);
-    const overlap = sheetWords.filter((w) => customerWords.includes(w)).length;
+    const overlap = sheetWords.filter((w) => tokenize(customer.name).includes(w)).length;
     if (overlap > bestScore) {
       bestScore = overlap;
       best = customer;
     }
   }
-
   return bestScore > 0 ? best : null;
 }
 
-function applyTransaction(customerId, type, amount, note, source, userId) {
+function applyTransaction(customerId, type, amount, source, userId) {
   const balanceChange = type === 'udhaar' ? amount : -amount;
   db.prepare(
-    'INSERT INTO transactions (customer_id, type, amount, note, source, created_by) VALUES (?, ?, ?, ?, ?, ?)'
-  ).run(customerId, type, amount, note || null, source, userId);
+    'INSERT INTO transactions (customer_id, type, amount, source, created_by) VALUES (?, ?, ?, ?, ?)'
+  ).run(customerId, type, amount, source, userId);
   db.prepare('UPDATE customers SET balance = balance + ? WHERE id = ?').run(balanceChange, customerId);
   return db.prepare('SELECT * FROM customers WHERE id = ?').get(customerId);
 }
 
+/** Inserts or updates a single running-total expense figure for one day, without duplicating. */
+function upsertDailyExpense(category, isoDate, amount, userId) {
+  const existing = db
+    .prepare("SELECT * FROM expenses WHERE category = ? AND entry_date = ? AND source = 'google_sheet'")
+    .get(category, isoDate);
+  if (existing) {
+    db.prepare('UPDATE expenses SET amount = ? WHERE id = ?').run(amount, existing.id);
+  } else {
+    db.prepare(
+      'INSERT INTO expenses (category, amount, entry_date, source, created_by) VALUES (?, ?, ?, ?, ?)'
+    ).run(category, amount, isoDate, 'google_sheet', userId);
+  }
+}
+
 // POST /api/sheets-sync/run
-// Reads new rows from the Sheet. Exact name matches import immediately.
-// Everything else (no match or ambiguous/partial match) goes to the Pending Approval queue.
+// Body (optional): { tabName: "3.4.2026" } - defaults to today.
 router.post('/run', async (req, res) => {
+  const tabName = (req.body && req.body.tabName) || todayTabName();
+  const isoDate = tabNameToIsoDate(tabName);
+
   try {
     const sheets = getSheetsClient();
     const sheetId = process.env.GOOGLE_SHEET_ID;
-
-    const result = await sheets.spreadsheets.values.get({
-      spreadsheetId: sheetId,
-      range: SHEET_RANGE,
-    });
-
-    const rows = result.data.values || [];
     const allCustomers = db.prepare('SELECT * FROM customers').all();
+
+    const alreadySynced = (rowKey) =>
+      !!db.prepare('SELECT 1 FROM synced_rows WHERE tab_name = ? AND row_key = ?').get(tabName, rowKey);
+    const markSynced = db.prepare('INSERT OR IGNORE INTO synced_rows (tab_name, row_key) VALUES (?, ?)');
+    const insertPending = db.prepare(
+      `INSERT INTO pending_sheet_syncs
+       (sheet_name, amount, type, tab_name, suggested_customer_id, suggested_customer_name)
+       VALUES (?, ?, ?, ?, ?, ?)`
+    );
 
     let processedCount = 0;
     let pendingCount = 0;
-    const statusUpdates = [];
 
-    const insertPending = db.prepare(
-      `INSERT INTO pending_sheet_syncs
-       (sheet_name, phone, amount, type, note, suggested_customer_id, suggested_customer_name)
-       VALUES (?, ?, ?, ?, ?, ?, ?)`
-    );
+    // ---- 1. Udhaar / Wasooli name+amount blocks ----
+    for (const block of BLOCKS) {
+      const result = await sheets.spreadsheets.values.get({
+        spreadsheetId: sheetId,
+        range: `'${tabName}'!${block.range}`,
+      });
+      const rows = result.data.values || [];
 
-    for (let i = 0; i < rows.length; i++) {
-      const [name, phone, typeRaw, amountRaw, note, status] = rows[i];
-      const rowNumber = i + 2;
-      if (status === 'Synced' || status === 'Pending' || !name || !amountRaw) continue;
+      for (let i = 0; i < rows.length; i++) {
+        const row = rows[i];
+        const name = row[block.nameCol];
+        const amountRaw = row[block.amountCol];
+        if (!name || !amountRaw) continue;
 
-      const type = (typeRaw || '').toLowerCase();
-      const amount = parseFloat(amountRaw);
-      if (!['udhaar', 'wasooli'].includes(type) || isNaN(amount)) continue;
+        const rowKey = `${block.key}_${i}`;
+        if (alreadySynced(rowKey)) continue;
 
-      // Exact match (case-insensitive)
-      const exactMatch = allCustomers.find((c) => c.name.trim().toLowerCase() === name.trim().toLowerCase());
+        const amount = parseFloat(amountRaw);
+        if (isNaN(amount) || amount <= 0) continue;
 
-      if (exactMatch) {
-        const updated = applyTransaction(exactMatch.id, type, amount, note, 'google_sheet', req.user.id);
-        notify(exactMatch, type, amount, updated.balance);
-        processedCount++;
-        statusUpdates.push({ range: `Sheet1!F${rowNumber}`, values: [['Synced']] });
-      } else {
-        const suggestion = findBestFuzzyMatch(name, allCustomers);
-        insertPending.run(
-          name,
-          phone || null,
-          amount,
-          type,
-          note || null,
-          suggestion ? suggestion.id : null,
-          suggestion ? suggestion.name : null
+        const exactMatch = allCustomers.find(
+          (c) => c.name.trim().toLowerCase() === name.toString().trim().toLowerCase()
         );
-        pendingCount++;
-        statusUpdates.push({ range: `Sheet1!F${rowNumber}`, values: [['Pending']] });
+
+        if (exactMatch) {
+          const updated = applyTransaction(exactMatch.id, block.type, amount, 'google_sheet', req.user.id);
+          notify(exactMatch, block.type, amount, updated.balance);
+          processedCount++;
+        } else {
+          const suggestion = findBestFuzzyMatch(name, allCustomers);
+          insertPending.run(
+            name,
+            amount,
+            block.type,
+            tabName,
+            suggestion ? suggestion.id : null,
+            suggestion ? suggestion.name : null
+          );
+          pendingCount++;
+        }
+        markSynced.run(tabName, rowKey);
       }
     }
 
-    if (statusUpdates.length > 0) {
-      await sheets.spreadsheets.values.batchUpdate({
-        spreadsheetId: sheetId,
-        requestBody: { valueInputOption: 'RAW', data: statusUpdates },
-      });
-    }
+    // ---- 2. Single-cell daily totals -> Monthly Expense / Daily Online / Main Branch Purchase ----
+    const cellRefs = Object.values(SINGLE_CELLS).map((cell) => `'${tabName}'!${cell}`);
+    const batchResult = await sheets.spreadsheets.values.batchGet({
+      spreadsheetId: sheetId,
+      ranges: cellRefs,
+    });
+
+    const categories = Object.keys(SINGLE_CELLS);
+    categories.forEach((category, idx) => {
+      const valueRange = batchResult.data.valueRanges[idx];
+      const raw = valueRange.values && valueRange.values[0] && valueRange.values[0][0];
+      const amount = parseFloat(raw);
+      if (!isNaN(amount)) {
+        upsertDailyExpense(category, isoDate, amount, req.user.id);
+      }
+    });
 
     db.prepare(
       'INSERT INTO sync_log (rows_synced, new_customers_flagged, synced_by) VALUES (?, ?, ?)'
     ).run(processedCount, pendingCount, req.user.id);
 
-    res.json({ processedCount, pendingCount });
+    res.json({ processedCount, pendingCount, tabName });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: 'Sync failed', details: err.message });
+    res.status(500).json({ error: 'Sync failed', details: err.message, tabName });
   }
 });
 
-// GET /api/sheets-sync/pending - list all rows awaiting owner review
+// GET /api/sheets-sync/pending
 router.get('/pending', (req, res) => {
   const pending = db.prepare('SELECT * FROM pending_sheet_syncs ORDER BY created_at DESC').all();
   res.json(pending);
 });
 
-// GET /api/sheets-sync/pending-count - for the dashboard badge
+// GET /api/sheets-sync/pending-count
 router.get('/pending-count', (req, res) => {
   const { count } = db.prepare('SELECT COUNT(*) as count FROM pending_sheet_syncs').get();
   res.json({ count });
@@ -188,20 +236,13 @@ router.post('/approve', (req, res) => {
     if (action === 'create') {
       const info = db
         .prepare('INSERT INTO customers (name, phone) VALUES (?, ?)')
-        .run(newCustomerName || pending.sheet_name, pending.phone || '');
+        .run(newCustomerName || pending.sheet_name, pending.phone || null);
       targetCustomerId = info.lastInsertRowid;
     } else if (action !== 'link' || !targetCustomerId) {
       return res.status(400).json({ error: 'action must be link (with customerId), create, or reject' });
     }
 
-    const updated = applyTransaction(
-      targetCustomerId,
-      pending.type,
-      pending.amount,
-      pending.note,
-      'google_sheet',
-      req.user.id
-    );
+    const updated = applyTransaction(targetCustomerId, pending.type, pending.amount, 'google_sheet', req.user.id);
     notify(updated, pending.type, pending.amount, updated.balance);
 
     db.prepare('DELETE FROM pending_sheet_syncs WHERE id = ?').run(pendingId);

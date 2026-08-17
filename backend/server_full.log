@@ -1,5 +1,0 @@
-WhatsApp module not active yet (run `npm install` to enable it).
-Default Owner account created -> username: owner | password: owner123 (change this!)
-(node:551) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.
-(Use `node --trace-deprecation ...` to show where the warning was created)
-Udhaar backend running on http://localhost:3000

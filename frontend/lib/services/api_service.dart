@@ -148,8 +148,12 @@ class ApiService {
   }
 
   // ---- Google Sheets Sync (Owner only) ----
-  static Future<Map<String, dynamic>> runSheetSync() async {
-    final res = await http.post(Uri.parse('$baseUrl/api/sheets-sync/run'), headers: await _headers());
+  static Future<Map<String, dynamic>> runSheetSync({String? tabName}) async {
+    final res = await http.post(
+      Uri.parse('$baseUrl/api/sheets-sync/run'),
+      headers: await _headers(),
+      body: jsonEncode(tabName != null ? {'tabName': tabName} : {}),
+    );
     final data = jsonDecode(res.body);
     if (res.statusCode != 200) throw Exception(data['error'] ?? 'Sync failed');
     return data;

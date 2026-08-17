@@ -14,7 +14,6 @@ class OwnerDashboard extends StatefulWidget {
 class _OwnerDashboardState extends State<OwnerDashboard> {
   List<dynamic> _customers = [];
   bool _loading = true;
-  bool _syncing = false;
   String _searchTerm = '';
 
   @override
@@ -37,27 +36,6 @@ class _OwnerDashboardState extends State<OwnerDashboard> {
 
   void _showSnack(String msg) {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
-  }
-
-  /// Runs the sync: exact-match rows import immediately, everything else
-  /// (no match / partial match) goes into the Pending Approval queue.
-  Future<void> _syncFromSheet() async {
-    setState(() => _syncing = true);
-    try {
-      final result = await ApiService.runSheetSync();
-      final processed = result['processedCount'] ?? 0;
-      final pending = result['pendingCount'] ?? 0;
-      _showSnack(
-        pending > 0
-            ? '$processed entries imported. $pending need your review (see Pending badge on Home).'
-            : '$processed entries imported.',
-      );
-      _load();
-    } catch (e) {
-      _showSnack('Sync failed: $e');
-    } finally {
-      setState(() => _syncing = false);
-    }
   }
 
   @override
@@ -85,11 +63,6 @@ class _OwnerDashboardState extends State<OwnerDashboard> {
             },
           ),
         ],
-      ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: _syncing ? null : _syncFromSheet,
-        icon: _syncing ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2)) : const Icon(Icons.sync),
-        label: Text(_syncing ? 'Syncing...' : 'Sync from Google Sheet'),
       ),
       body: Column(
         children: [
@@ -123,7 +96,7 @@ class _OwnerDashboardState extends State<OwnerDashboard> {
                               const SizedBox(height: 8),
                               const Text('Tap the person-add icon above to add your first customer,',
                                   style: TextStyle(color: Colors.grey)),
-                              const Text('or use "Sync from Google Sheet" below.',
+                              const Text('or use "Sync from Google Sheet" on the Home screen.',
                                   style: TextStyle(color: Colors.grey)),
                             ],
                           ],

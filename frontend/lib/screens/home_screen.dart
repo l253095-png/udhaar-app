@@ -15,6 +15,7 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   int _pendingCount = 0;
+  bool _syncing = false;
 
   @override
   void initState() {
@@ -28,6 +29,31 @@ class _HomeScreenState extends State<HomeScreen> {
       if (mounted) setState(() => _pendingCount = count);
     } catch (_) {
       // ignore - badge just won't show if this fails
+    }
+  }
+
+  void _showSnack(String msg) {
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+  }
+
+  /// The ONE sync button for the whole app.
+  /// Exact-match rows import immediately, everything else goes to Pending Approval.
+  Future<void> _syncFromSheet() async {
+    setState(() => _syncing = true);
+    try {
+      final result = await ApiService.runSheetSync();
+      final processed = result['processedCount'] ?? 0;
+      final pending = result['pendingCount'] ?? 0;
+      _showSnack(
+        pending > 0
+            ? '$processed entries imported. $pending need your review below.'
+            : '$processed entries imported.',
+      );
+      _loadPendingCount();
+    } catch (e) {
+      _showSnack('Sync failed: $e');
+    } finally {
+      setState(() => _syncing = false);
     }
   }
 
@@ -47,6 +73,13 @@ class _HomeScreenState extends State<HomeScreen> {
             },
           ),
         ],
+      ),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: _syncing ? null : _syncFromSheet,
+        icon: _syncing
+            ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+            : const Icon(Icons.sync),
+        label: Text(_syncing ? 'Syncing...' : 'Sync from Google Sheet'),
       ),
       body: RefreshIndicator(
         onRefresh: _loadPendingCount,
@@ -100,13 +133,6 @@ class _HomeScreenState extends State<HomeScreen> {
                   color: Colors.blue,
                   onTap: () => Navigator.of(context).push(MaterialPageRoute(
                       builder: (_) => const ExpenseListScreen(category: 'daily_online', title: 'Daily Online'))),
-                ),
-                _ModuleTile(
-                  title: 'Daily Card Transaction',
-                  icon: Icons.credit_card,
-                  color: Colors.purple,
-                  onTap: () => Navigator.of(context).push(MaterialPageRoute(
-                      builder: (_) => const ExpenseListScreen(category: 'daily_card', title: 'Daily Card Transaction'))),
                 ),
                 _ModuleTile(
                   title: 'Daily Main Branch Purchase',

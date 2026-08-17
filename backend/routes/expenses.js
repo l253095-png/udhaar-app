@@ -5,7 +5,7 @@ const { authenticate, ownerOnly } = require('../middleware/auth');
 const router = express.Router();
 router.use(authenticate, ownerOnly); // entire module is Owner-only
 
-const VALID_CATEGORIES = ['monthly_expense', 'daily_online', 'daily_card', 'daily_main_branch_purchase'];
+const VALID_CATEGORIES = ['monthly_expense', 'daily_online', 'daily_main_branch_purchase'];
 
 // GET /api/expenses/:category
 router.get('/:category', (req, res) => {

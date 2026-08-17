@@ -112,7 +112,20 @@ class _ExpenseListScreenState extends State<ExpenseListScreen> {
   @override
   Widget build(BuildContext context) {
     final dateFormat = DateFormat('dd MMM yyyy');
-    final total = _entries.fold<double>(0, (sum, e) => sum + (e['amount'] as num).toDouble());
+    final now = DateTime.now();
+
+    // Only count/show entries from the current month (this screen is a running monthly view).
+    final currentMonthEntries = _entries.where((e) {
+      try {
+        final d = DateTime.parse(e['entry_date']);
+        return d.year == now.year && d.month == now.month;
+      } catch (_) {
+        return false;
+      }
+    }).toList();
+
+    final total = currentMonthEntries.fold<double>(0, (sum, e) => sum + (e['amount'] as num).toDouble());
+    final displayEntries = currentMonthEntries;
 
     return Scaffold(
       appBar: AppBar(title: Text(widget.title)),
@@ -130,17 +143,17 @@ class _ExpenseListScreenState extends State<ExpenseListScreen> {
                   padding: const EdgeInsets.all(16),
                   color: Colors.grey.shade100,
                   child: Text(
-                    'Total: Rs ${total.toStringAsFixed(0)}',
+                    'This Month Total: Rs ${total.toStringAsFixed(0)}',
                     style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                   ),
                 ),
                 Expanded(
-                  child: _entries.isEmpty
-                      ? const Center(child: Text('No entries yet', style: TextStyle(color: Colors.grey)))
+                  child: displayEntries.isEmpty
+                      ? const Center(child: Text('No entries yet this month', style: TextStyle(color: Colors.grey)))
                       : ListView.builder(
-                          itemCount: _entries.length,
+                          itemCount: displayEntries.length,
                           itemBuilder: (context, index) {
-                            final e = _entries[index];
+                            final e = displayEntries[index];
                             DateTime? d;
                             try {
                               d = DateTime.parse(e['entry_date']);

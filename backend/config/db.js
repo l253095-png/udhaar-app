@@ -16,10 +16,12 @@ db.exec(`
     created_at TEXT DEFAULT (datetime('now'))
   );
 
+  -- phone is optional because customers created automatically from the
+  -- Google Sheet (Udhaar/Wasooli columns) don't have a phone number there.
   CREATE TABLE IF NOT EXISTS customers (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     name TEXT NOT NULL,
-    phone TEXT NOT NULL,
+    phone TEXT,
     balance REAL DEFAULT 0,
     created_at TEXT DEFAULT (datetime('now'))
   );
@@ -45,14 +47,15 @@ db.exec(`
     synced_at TEXT DEFAULT (datetime('now'))
   );
 
-  -- Used by the 4 dashboard modules: Monthly Expense, Daily Online,
-  -- Daily Card Transaction, Daily Main Branch Purchase
+  -- Used by the 3 dashboard modules: Monthly Expense, Daily Online, Main Branch Purchase.
+  -- Card Transaction module was removed per owner's request.
   CREATE TABLE IF NOT EXISTS expenses (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    category TEXT NOT NULL CHECK(category IN ('monthly_expense', 'daily_online', 'daily_card', 'daily_main_branch_purchase')),
+    category TEXT NOT NULL CHECK(category IN ('monthly_expense', 'daily_online', 'daily_main_branch_purchase')),
     amount REAL NOT NULL,
     note TEXT,
     entry_date TEXT DEFAULT (date('now')),
+    source TEXT DEFAULT 'app',
     created_by INTEGER,
     created_at TEXT DEFAULT (datetime('now')),
     FOREIGN KEY (created_by) REFERENCES users(id)
@@ -67,10 +70,22 @@ db.exec(`
     amount REAL NOT NULL,
     type TEXT NOT NULL CHECK(type IN ('udhaar', 'wasooli')),
     note TEXT,
+    tab_name TEXT,
     suggested_customer_id INTEGER,
     suggested_customer_name TEXT,
     created_at TEXT DEFAULT (datetime('now')),
     FOREIGN KEY (suggested_customer_id) REFERENCES customers(id)
+  );
+
+  -- Tracks which individual sheet rows (by tab + cell) have already been
+  -- processed, so re-running sync on the same day's tab never double-counts
+  -- a customer's udhaar/wasooli row.
+  CREATE TABLE IF NOT EXISTS synced_rows (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    tab_name TEXT NOT NULL,
+    row_key TEXT NOT NULL,
+    created_at TEXT DEFAULT (datetime('now')),
+    UNIQUE(tab_name, row_key)
   );
 `);
 
