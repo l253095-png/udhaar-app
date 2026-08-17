@@ -38,6 +38,86 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
     }
   }
 
+  Future<void> _showEditDialog(Map<String, dynamic> txn) async {
+    final amountController = TextEditingController(text: txn['amount'].toString());
+    final noteController = TextEditingController(text: txn['note']?.toString() ?? '');
+    String type = txn['type'];
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (_) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: const Text('Edit Entry'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              SegmentedButton<String>(
+                segments: const [
+                  ButtonSegment(value: 'udhaar', label: Text('Debit')),
+                  ButtonSegment(value: 'wasooli', label: Text('Credit')),
+                ],
+                selected: {type},
+                onSelectionChanged: (s) => setDialogState(() => type = s.first),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: amountController,
+                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                decoration: const InputDecoration(labelText: 'Amount (Rs)', border: OutlineInputBorder()),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: noteController,
+                decoration: const InputDecoration(labelText: 'Note', border: OutlineInputBorder()),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
+            ElevatedButton(onPressed: () => Navigator.pop(context, true), child: const Text('Save')),
+          ],
+        ),
+      ),
+    );
+
+    if (confirmed != true) return;
+    final amount = double.tryParse(amountController.text.trim());
+    if (amount == null || amount <= 0) return;
+
+    try {
+      await ApiService.updateTransaction(txn['id'], type, amount, noteController.text.trim());
+      _load();
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed: $e')));
+    }
+  }
+
+  Future<void> _deleteEntry(int id) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('Delete Entry?'),
+        content: const Text('This will remove the entry and adjust the balance. Cannot be undone.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed == true) {
+      try {
+        await ApiService.deleteTransaction(id);
+        _load();
+      } catch (e) {
+        if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed: $e')));
+      }
+    }
+  }
+
   Future<void> _showEntryDialog(String type) async {
     final amountController = TextEditingController();
     final noteController = TextEditingController();
@@ -179,10 +259,30 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
                               if (parsedDate != null) dateFormat.format(parsedDate),
                             ].join(' · '),
                           ),
-                          trailing: Text(
-                            'Rs ${(t['amount'] as num).toStringAsFixed(0)}',
-                            style: TextStyle(fontWeight: FontWeight.bold, color: isDebit ? Colors.red : Colors.green),
-                          ),
+                          trailing: widget.readOnly
+                              ? Text(
+                                  'Rs ${(t['amount'] as num).toStringAsFixed(0)}',
+                                  style: TextStyle(fontWeight: FontWeight.bold, color: isDebit ? Colors.red : Colors.green),
+                                )
+                              : Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Text(
+                                      'Rs ${(t['amount'] as num).toStringAsFixed(0)}',
+                                      style: TextStyle(fontWeight: FontWeight.bold, color: isDebit ? Colors.red : Colors.green),
+                                    ),
+                                    PopupMenuButton<String>(
+                                      onSelected: (value) {
+                                        if (value == 'edit') _showEditDialog(t);
+                                        if (value == 'delete') _deleteEntry(t['id']);
+                                      },
+                                      itemBuilder: (_) => [
+                                        const PopupMenuItem(value: 'edit', child: Text('Edit')),
+                                        const PopupMenuItem(value: 'delete', child: Text('Delete')),
+                                      ],
+                                    ),
+                                  ],
+                                ),
                         );
                       },
                     ),

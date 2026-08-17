@@ -5,11 +5,30 @@ const { authenticate, ownerOnly } = require('../middleware/auth');
 const router = express.Router();
 router.use(authenticate);
 
+// WhatsApp is optional — if the package isn't installed yet (npm install not run
+// with the new dependency) or WhatsApp isn't linked, this quietly does nothing.
+let sendWhatsAppMessage = async () => {};
+try {
+  sendWhatsAppMessage = require('../services/whatsapp').sendWhatsAppMessage;
+} catch (e) {
+  console.log('WhatsApp module not active yet (run `npm install` to enable it).');
+}
+
+function notifyCustomer(customer, type, amount, newBalance) {
+  const typeLabel = type === 'udhaar' ? 'Udhaar (Debit)' : 'Wasooli (Credit)';
+  const message =
+    `Assalam-o-Alaikum ${customer.name},\n` +
+    `Aaj aap ne Rs ${amount} ka ${typeLabel} kiya.\n` +
+    `Aapka remaining balance: Rs ${newBalance}\n` +
+    `- Shukriya`;
+  sendWhatsAppMessage(customer.phone, message).catch(() => {});
+}
+
 // GET /api/transactions - Owner and Worker can view all transactions
 router.get('/', (req, res) => {
   const transactions = db
     .prepare(
-      `SELECT t.*, c.name as customer_name, c.house_number
+      `SELECT t.*, c.name as customer_name, c.phone as customer_phone
        FROM transactions t
        JOIN customers c ON c.id = t.customer_id
        ORDER BY t.created_at DESC LIMIT 200`
@@ -18,7 +37,7 @@ router.get('/', (req, res) => {
   res.json(transactions);
 });
 
-// POST /api/transactions - Owner only (manual entry, e.g. correction or same-day entry made directly by owner)
+// POST /api/transactions - Owner only
 router.post('/', ownerOnly, (req, res) => {
   const { customer_id, type, amount, note } = req.body;
   if (!customer_id || !type || !amount) {
@@ -45,7 +64,40 @@ router.post('/', ownerOnly, (req, res) => {
   });
 
   const id = runTransaction();
+  const updatedCustomer = db.prepare('SELECT * FROM customers WHERE id = ?').get(customer_id);
+  notifyCustomer(customer, type, amount, updatedCustomer.balance);
+
   res.status(201).json({ id, message: 'Transaction recorded' });
+});
+
+// PUT /api/transactions/:id - Owner only (edit an existing entry)
+router.put('/:id', ownerOnly, (req, res) => {
+  const { type, amount, note } = req.body;
+  const txn = db.prepare('SELECT * FROM transactions WHERE id = ?').get(req.params.id);
+  if (!txn) return res.status(404).json({ error: 'Transaction not found' });
+
+  const newType = type || txn.type;
+  const newAmount = amount !== undefined ? amount : txn.amount;
+  if (!['udhaar', 'wasooli'].includes(newType)) {
+    return res.status(400).json({ error: 'type must be udhaar or wasooli' });
+  }
+
+  const oldEffect = txn.type === 'udhaar' ? -txn.amount : txn.amount; // undo old
+  const newEffect = newType === 'udhaar' ? newAmount : -newAmount; // apply new
+
+  const runUpdate = db.transaction(() => {
+    db.prepare('UPDATE customers SET balance = balance + ? WHERE id = ?').run(oldEffect, txn.customer_id);
+    db.prepare('UPDATE transactions SET type = ?, amount = ?, note = ? WHERE id = ?').run(
+      newType,
+      newAmount,
+      note ?? txn.note,
+      req.params.id
+    );
+    db.prepare('UPDATE customers SET balance = balance + ? WHERE id = ?').run(newEffect, txn.customer_id);
+  });
+  runUpdate();
+
+  res.json({ message: 'Transaction updated' });
 });
 
 // DELETE /api/transactions/:id - Owner only

@@ -53,8 +53,11 @@ class ApiService {
   }
 
   // ---- Customers ----
-  static Future<List<dynamic>> getCustomers() async {
-    final res = await http.get(Uri.parse('$baseUrl/api/customers'), headers: await _headers());
+  static Future<List<dynamic>> getCustomers({String? search}) async {
+    final uri = (search != null && search.trim().isNotEmpty)
+        ? Uri.parse('$baseUrl/api/customers?search=${Uri.encodeComponent(search.trim())}')
+        : Uri.parse('$baseUrl/api/customers');
+    final res = await http.get(uri, headers: await _headers());
     return jsonDecode(res.body);
   }
 
@@ -91,18 +94,91 @@ class ApiService {
     }
   }
 
-  // ---- Google Sheets Sync (Owner only) ----
-  static Future<Map<String, dynamic>> previewSheetSync() async {
-    final res = await http.get(Uri.parse('$baseUrl/api/sheets-sync/preview'), headers: await _headers());
+  static Future<void> updateTransaction(int id, String type, double amount, String note) async {
+    final res = await http.put(
+      Uri.parse('$baseUrl/api/transactions/$id'),
+      headers: await _headers(),
+      body: jsonEncode({'type': type, 'amount': amount, 'note': note}),
+    );
+    if (res.statusCode != 200) {
+      throw Exception(jsonDecode(res.body)['error'] ?? 'Failed to update transaction');
+    }
+  }
+
+  static Future<void> deleteTransaction(int id) async {
+    final res = await http.delete(Uri.parse('$baseUrl/api/transactions/$id'), headers: await _headers());
+    if (res.statusCode != 200) {
+      throw Exception(jsonDecode(res.body)['error'] ?? 'Failed to delete transaction');
+    }
+  }
+
+  // ---- Expenses (Monthly Expense / Daily Online / Daily Card / Daily Main Branch Purchase) ----
+  static Future<List<dynamic>> getExpenses(String category) async {
+    final res = await http.get(Uri.parse('$baseUrl/api/expenses/$category'), headers: await _headers());
     return jsonDecode(res.body);
   }
 
-  static Future<Map<String, dynamic>> confirmSheetSync(List<dynamic> rows) async {
+  static Future<void> addExpense(String category, double amount, String note) async {
     final res = await http.post(
-      Uri.parse('$baseUrl/api/sheets-sync/confirm'),
+      Uri.parse('$baseUrl/api/expenses/$category'),
       headers: await _headers(),
-      body: jsonEncode({'rows': rows}),
+      body: jsonEncode({'amount': amount, 'note': note}),
     );
+    if (res.statusCode != 201) {
+      throw Exception(jsonDecode(res.body)['error'] ?? 'Failed to add entry');
+    }
+  }
+
+  static Future<void> updateExpense(int id, double amount, String note) async {
+    final res = await http.put(
+      Uri.parse('$baseUrl/api/expenses/entry/$id'),
+      headers: await _headers(),
+      body: jsonEncode({'amount': amount, 'note': note}),
+    );
+    if (res.statusCode != 200) {
+      throw Exception(jsonDecode(res.body)['error'] ?? 'Failed to update entry');
+    }
+  }
+
+  static Future<void> deleteExpense(int id) async {
+    final res = await http.delete(Uri.parse('$baseUrl/api/expenses/entry/$id'), headers: await _headers());
+    if (res.statusCode != 200) {
+      throw Exception(jsonDecode(res.body)['error'] ?? 'Failed to delete entry');
+    }
+  }
+
+  // ---- Google Sheets Sync (Owner only) ----
+  static Future<Map<String, dynamic>> runSheetSync() async {
+    final res = await http.post(Uri.parse('$baseUrl/api/sheets-sync/run'), headers: await _headers());
+    final data = jsonDecode(res.body);
+    if (res.statusCode != 200) throw Exception(data['error'] ?? 'Sync failed');
+    return data;
+  }
+
+  static Future<List<dynamic>> getPendingSyncs() async {
+    final res = await http.get(Uri.parse('$baseUrl/api/sheets-sync/pending'), headers: await _headers());
     return jsonDecode(res.body);
+  }
+
+  static Future<int> getPendingSyncCount() async {
+    final res = await http.get(Uri.parse('$baseUrl/api/sheets-sync/pending-count'), headers: await _headers());
+    final data = jsonDecode(res.body);
+    return data['count'] ?? 0;
+  }
+
+  static Future<void> resolvePendingSync(int pendingId, String action, {int? customerId, String? newCustomerName}) async {
+    final res = await http.post(
+      Uri.parse('$baseUrl/api/sheets-sync/approve'),
+      headers: await _headers(),
+      body: jsonEncode({
+        'pendingId': pendingId,
+        'action': action,
+        if (customerId != null) 'customerId': customerId,
+        if (newCustomerName != null) 'newCustomerName': newCustomerName,
+      }),
+    );
+    if (res.statusCode != 200) {
+      throw Exception(jsonDecode(res.body)['error'] ?? 'Failed to resolve entry');
+    }
   }
 }

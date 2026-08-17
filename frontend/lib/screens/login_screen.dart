@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import '../services/api_service.dart';
-import 'owner_dashboard.dart';
+import 'home_screen.dart';
 import 'worker_dashboard.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -29,7 +29,7 @@ class _LoginScreenState extends State<LoginScreen> {
       final role = data['user']['role'];
       Navigator.of(context).pushReplacement(
         MaterialPageRoute(
-          builder: (_) => role == 'owner' ? const OwnerDashboard() : const WorkerDashboard(),
+          builder: (_) => role == 'owner' ? const HomeScreen() : const WorkerDashboard(),
         ),
       );
     } catch (e) {

@@ -44,6 +44,34 @@ db.exec(`
     synced_by INTEGER,
     synced_at TEXT DEFAULT (datetime('now'))
   );
+
+  -- Used by the 4 dashboard modules: Monthly Expense, Daily Online,
+  -- Daily Card Transaction, Daily Main Branch Purchase
+  CREATE TABLE IF NOT EXISTS expenses (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    category TEXT NOT NULL CHECK(category IN ('monthly_expense', 'daily_online', 'daily_card', 'daily_main_branch_purchase')),
+    amount REAL NOT NULL,
+    note TEXT,
+    entry_date TEXT DEFAULT (date('now')),
+    created_by INTEGER,
+    created_at TEXT DEFAULT (datetime('now')),
+    FOREIGN KEY (created_by) REFERENCES users(id)
+  );
+
+  -- Sheet rows that didn't exactly match an existing customer.
+  -- Owner reviews these and links/creates/rejects them manually.
+  CREATE TABLE IF NOT EXISTS pending_sheet_syncs (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    sheet_name TEXT NOT NULL,
+    phone TEXT,
+    amount REAL NOT NULL,
+    type TEXT NOT NULL CHECK(type IN ('udhaar', 'wasooli')),
+    note TEXT,
+    suggested_customer_id INTEGER,
+    suggested_customer_name TEXT,
+    created_at TEXT DEFAULT (datetime('now')),
+    FOREIGN KEY (suggested_customer_id) REFERENCES customers(id)
+  );
 `);
 
 module.exports = db;

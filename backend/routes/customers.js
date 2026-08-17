@@ -5,9 +5,18 @@ const { authenticate, ownerOnly } = require('../middleware/auth');
 const router = express.Router();
 router.use(authenticate); // all customer routes require login
 
-// GET /api/customers - Owner and Worker can view
+// GET /api/customers - Owner and Worker can view. Optional ?search=name-or-phone
 router.get('/', (req, res) => {
-  const customers = db.prepare('SELECT * FROM customers ORDER BY name').all();
+  const { search } = req.query;
+  let customers;
+  if (search && search.trim()) {
+    const term = `%${search.trim()}%`;
+    customers = db
+      .prepare('SELECT * FROM customers WHERE name LIKE ? OR phone LIKE ? ORDER BY name')
+      .all(term, term);
+  } else {
+    customers = db.prepare('SELECT * FROM customers ORDER BY name').all();
+  }
   res.json(customers);
 });
 

@@ -15,6 +15,7 @@ class _OwnerDashboardState extends State<OwnerDashboard> {
   List<dynamic> _customers = [];
   bool _loading = true;
   bool _syncing = false;
+  String _searchTerm = '';
 
   @override
   void initState() {
@@ -25,7 +26,7 @@ class _OwnerDashboardState extends State<OwnerDashboard> {
   Future<void> _load() async {
     setState(() => _loading = true);
     try {
-      final customers = await ApiService.getCustomers();
+      final customers = await ApiService.getCustomers(search: _searchTerm);
       setState(() => _customers = customers);
     } catch (e) {
       _showSnack('Failed to load: $e');
@@ -38,51 +39,20 @@ class _OwnerDashboardState extends State<OwnerDashboard> {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
   }
 
-  /// Step 1: preview what will be imported from Google Sheet.
-  /// Step 2: owner confirms, then rows are actually synced and marked "Synced" in the Sheet.
+  /// Runs the sync: exact-match rows import immediately, everything else
+  /// (no match / partial match) goes into the Pending Approval queue.
   Future<void> _syncFromSheet() async {
     setState(() => _syncing = true);
     try {
-      final preview = await ApiService.previewSheetSync();
-      final rows = preview['preview'] as List<dynamic>;
-
-      if (rows.isEmpty) {
-        _showSnack('No new rows to sync.');
-        return;
-      }
-
-      if (!mounted) return;
-      final confirmed = await showDialog<bool>(
-        context: context,
-        builder: (_) => AlertDialog(
-          title: Text('${rows.length} entries found'),
-          content: SizedBox(
-            width: double.maxFinite,
-            child: ListView.builder(
-              shrinkWrap: true,
-              itemCount: rows.length,
-              itemBuilder: (context, i) {
-                final r = rows[i];
-                return ListTile(
-                  dense: true,
-                  title: Text('${r['name']} (${r['phone'] ?? '-'})'),
-                  subtitle: Text('${r['type']} - Rs ${r['amount']}${r['isNewCustomer'] ? '  [NEW]' : ''}'),
-                );
-              },
-            ),
-          ),
-          actions: [
-            TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
-            ElevatedButton(onPressed: () => Navigator.pop(context, true), child: const Text('Confirm & Import')),
-          ],
-        ),
+      final result = await ApiService.runSheetSync();
+      final processed = result['processedCount'] ?? 0;
+      final pending = result['pendingCount'] ?? 0;
+      _showSnack(
+        pending > 0
+            ? '$processed entries imported. $pending need your review (see Pending badge on Home).'
+            : '$processed entries imported.',
       );
-
-      if (confirmed == true) {
-        final result = await ApiService.confirmSheetSync(rows);
-        _showSnack('Synced ${result['syncedCount']} entries (${result['newCustomerCount']} new customers)');
-        _load();
-      }
+      _load();
     } catch (e) {
       _showSnack('Sync failed: $e');
     } finally {
@@ -94,7 +64,7 @@ class _OwnerDashboardState extends State<OwnerDashboard> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Owner Dashboard'),
+        title: const Text('Udhaar System'),
         actions: [
           IconButton(
             icon: const Icon(Icons.person_add),
@@ -121,49 +91,72 @@ class _OwnerDashboardState extends State<OwnerDashboard> {
         icon: _syncing ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2)) : const Icon(Icons.sync),
         label: Text(_syncing ? 'Syncing...' : 'Sync from Google Sheet'),
       ),
-      body: _loading
-          ? const Center(child: CircularProgressIndicator())
-          : _customers.isEmpty
-              ? Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      const Icon(Icons.people_outline, size: 64, color: Colors.grey),
-                      const SizedBox(height: 12),
-                      const Text('No customers yet'),
-                      const SizedBox(height: 8),
-                      const Text('Tap the person-add icon above to add your first customer,',
-                          style: TextStyle(color: Colors.grey)),
-                      const Text('or use "Sync from Google Sheet" below.',
-                          style: TextStyle(color: Colors.grey)),
-                    ],
-                  ),
-                )
-              : RefreshIndicator(
-              onRefresh: _load,
-              child: ListView.builder(
-                itemCount: _customers.length,
-                itemBuilder: (context, index) {
-                  final c = _customers[index];
-                  final balance = (c['balance'] as num).toDouble();
-                  return ListTile(
-                    leading: const Icon(Icons.person),
-                    title: Text(c['name']),
-                    subtitle: Text(c['phone'] ?? ''),
-                    trailing: Text(
-                      'Rs ${balance.toStringAsFixed(0)}',
-                      style: TextStyle(fontWeight: FontWeight.bold, color: balance > 0 ? Colors.red : Colors.green),
-                    ),
-                    onTap: () async {
-                      await Navigator.of(context).push(
-                        MaterialPageRoute(builder: (_) => CustomerDetailScreen(customerId: c['id'])),
-                      );
-                      _load(); // refresh balances after returning from detail screen
-                    },
-                  );
-                },
+      body: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.all(12.0),
+            child: TextField(
+              decoration: const InputDecoration(
+                hintText: 'Search by name or phone...',
+                prefixIcon: Icon(Icons.search),
+                border: OutlineInputBorder(),
+                isDense: true,
               ),
+              onChanged: (value) {
+                _searchTerm = value;
+                _load();
+              },
             ),
+          ),
+          Expanded(
+            child: _loading
+                ? const Center(child: CircularProgressIndicator())
+                : _customers.isEmpty
+                    ? Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            const Icon(Icons.people_outline, size: 64, color: Colors.grey),
+                            const SizedBox(height: 12),
+                            Text(_searchTerm.isEmpty ? 'No customers yet' : 'No matching customers'),
+                            if (_searchTerm.isEmpty) ...[
+                              const SizedBox(height: 8),
+                              const Text('Tap the person-add icon above to add your first customer,',
+                                  style: TextStyle(color: Colors.grey)),
+                              const Text('or use "Sync from Google Sheet" below.',
+                                  style: TextStyle(color: Colors.grey)),
+                            ],
+                          ],
+                        ),
+                      )
+                    : RefreshIndicator(
+                        onRefresh: _load,
+                        child: ListView.builder(
+                          itemCount: _customers.length,
+                          itemBuilder: (context, index) {
+                            final c = _customers[index];
+                            final balance = (c['balance'] as num).toDouble();
+                            return ListTile(
+                              leading: const Icon(Icons.person),
+                              title: Text(c['name']),
+                              subtitle: Text(c['phone'] ?? ''),
+                              trailing: Text(
+                                'Rs ${balance.toStringAsFixed(0)}',
+                                style: TextStyle(fontWeight: FontWeight.bold, color: balance > 0 ? Colors.red : Colors.green),
+                              ),
+                              onTap: () async {
+                                await Navigator.of(context).push(
+                                  MaterialPageRoute(builder: (_) => CustomerDetailScreen(customerId: c['id'])),
+                                );
+                                _load();
+                              },
+                            );
+                          },
+                        ),
+                      ),
+          ),
+        ],
+      ),
     );
   }
 }

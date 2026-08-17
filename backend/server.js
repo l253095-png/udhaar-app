@@ -8,6 +8,7 @@ const authRoutes = require('./routes/auth');
 const customerRoutes = require('./routes/customers');
 const transactionRoutes = require('./routes/transactions');
 const sheetsSyncRoutes = require('./routes/sheetsSync');
+const expensesRoutes = require('./routes/expenses');
 
 const app = express();
 app.use(cors());
@@ -21,6 +22,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/customers', customerRoutes);
 app.use('/api/transactions', transactionRoutes);
 app.use('/api/sheets-sync', sheetsSyncRoutes);
+app.use('/api/expenses', expensesRoutes);
 
 // Auto-create a default Owner account on first run if no users exist yet
 const userCount = db.prepare('SELECT COUNT(*) as count FROM users').get().count;
