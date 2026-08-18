@@ -25,16 +25,33 @@ function notifyCustomer(customer, type, amount, newBalance) {
 }
 
 // GET /api/transactions - Owner and Worker can view all transactions
+// Optional query params: ?type=udhaar|wasooli  &period=today|month
 router.get('/', (req, res) => {
-  const transactions = db
-    .prepare(
-      `SELECT t.*, c.name as customer_name, c.phone as customer_phone
-       FROM transactions t
-       JOIN customers c ON c.id = t.customer_id
-       ORDER BY t.created_at DESC LIMIT 200`
-    )
-    .all();
-  res.json(transactions);
+  const { type, period } = req.query;
+
+  let query = `SELECT t.*, c.name as customer_name, c.phone as customer_phone
+               FROM transactions t
+               JOIN customers c ON c.id = t.customer_id
+               WHERE 1=1`;
+  const params = [];
+
+  if (type === 'udhaar' || type === 'wasooli') {
+    query += ' AND t.type = ?';
+    params.push(type);
+  }
+
+  if (period === 'today') {
+    query += " AND date(t.created_at) = date('now')";
+  } else if (period === 'month') {
+    query += " AND strftime('%Y-%m', t.created_at) = strftime('%Y-%m', 'now')";
+  }
+
+  query += ' ORDER BY t.created_at DESC LIMIT 500';
+
+  const transactions = db.prepare(query).all(...params);
+
+  const total = transactions.reduce((sum, t) => sum + t.amount, 0);
+  res.json({ transactions, total, count: transactions.length });
 });
 
 // POST /api/transactions - Owner only

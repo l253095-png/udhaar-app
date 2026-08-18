@@ -3,6 +3,7 @@ import '../services/api_service.dart';
 import 'login_screen.dart';
 import 'add_customer_screen.dart';
 import 'customer_detail_screen.dart';
+import 'transaction_report_screen.dart';
 
 class OwnerDashboard extends StatefulWidget {
   const OwnerDashboard({super.key});
@@ -230,6 +231,80 @@ class _OwnerDashboardState extends State<OwnerDashboard> {
     }
   }
 
+  /// Floating menu with quick reports: today's/month's credit & debit, and total customers.
+  void _showReportsMenu() {
+    showModalBottomSheet(
+      context: context,
+      builder: (_) => SafeArea(
+        child: Wrap(
+          children: [
+            const Padding(
+              padding: EdgeInsets.all(16),
+              child: Text('Reports', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            ),
+            ListTile(
+              leading: const Icon(Icons.calendar_month, color: Colors.red),
+              title: const Text('Current Month — Debit (Udhaar)'),
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.of(context).push(MaterialPageRoute(
+                  builder: (_) => const TransactionReportScreen(
+                      title: 'This Month — Debit', type: 'udhaar', period: 'month'),
+                ));
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.calendar_month, color: Colors.green),
+              title: const Text('Current Month — Credit (Wasooli)'),
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.of(context).push(MaterialPageRoute(
+                  builder: (_) => const TransactionReportScreen(
+                      title: 'This Month — Credit', type: 'wasooli', period: 'month'),
+                ));
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.today, color: Colors.red),
+              title: const Text("Today's Debit Customers"),
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.of(context).push(MaterialPageRoute(
+                  builder: (_) => const TransactionReportScreen(
+                      title: "Today's Debit", type: 'udhaar', period: 'today'),
+                ));
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.today, color: Colors.green),
+              title: const Text("Today's Credit Customers"),
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.of(context).push(MaterialPageRoute(
+                  builder: (_) => const TransactionReportScreen(
+                      title: "Today's Credit", type: 'wasooli', period: 'today'),
+                ));
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.people, color: Colors.blueGrey),
+              title: Text('Total Customers (${_allCustomers.length})'),
+              subtitle: const Text('Shows the full customer list (this screen)'),
+              onTap: () {
+                Navigator.pop(context);
+                setState(() {
+                  _searchTerm = '';
+                });
+                _load();
+              },
+            ),
+            const SizedBox(height: 8),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildSummaryCard(String title, String value, IconData icon, Color color) {
     return Expanded(
       child: Card(
@@ -286,6 +361,10 @@ class _OwnerDashboardState extends State<OwnerDashboard> {
             },
           ),
         ],
+      ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: _showReportsMenu,
+        child: const Icon(Icons.bar_chart),
       ),
       body: Column(
         children: [

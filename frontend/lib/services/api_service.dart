@@ -123,6 +123,16 @@ class ApiService {
   }
 
   // ---- Transactions ----
+  // ---- Transactions ----
+  static Future<Map<String, dynamic>> getTransactionsFiltered({String? type, String? period}) async {
+    final params = <String, String>{};
+    if (type != null) params['type'] = type;
+    if (period != null) params['period'] = period;
+    final uri = Uri.parse('$baseUrl/api/transactions').replace(queryParameters: params.isEmpty ? null : params);
+    final res = await http.get(uri, headers: await _headers());
+    return jsonDecode(res.body);
+  }
+
   static Future<List<dynamic>> getTransactions() async {
     final res = await http.get(Uri.parse('$baseUrl/api/transactions'), headers: await _headers());
     return jsonDecode(res.body);
