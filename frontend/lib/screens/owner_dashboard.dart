@@ -176,6 +176,60 @@ class _OwnerDashboardState extends State<OwnerDashboard> {
     }
   }
 
+  /// Quick Credit/Debit entry directly from the customer list, without
+  /// needing to navigate to the Customer Detail screen.
+  Future<void> _showQuickTransactionDialog(Map<String, dynamic> customer, String type) async {
+    final amountController = TextEditingController();
+    final noteController = TextEditingController();
+    final isDebit = type == 'udhaar';
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: Text('${isDebit ? 'Add Udhaar (Debit)' : 'Add Wasooli (Credit)'} — ${customer['name']}'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: amountController,
+              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              autofocus: true,
+              decoration: const InputDecoration(labelText: 'Amount (Rs)', border: OutlineInputBorder()),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: noteController,
+              decoration: const InputDecoration(labelText: 'Note (optional)', border: OutlineInputBorder()),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: isDebit ? Colors.red : Colors.green),
+            onPressed: () => Navigator.pop(context, true),
+            child: Text(isDebit ? 'Add Debit' : 'Add Credit'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return;
+    final amount = double.tryParse(amountController.text.trim());
+    if (amount == null || amount <= 0) {
+      _showSnack('Enter a valid amount');
+      return;
+    }
+
+    try {
+      await ApiService.addTransaction(customer['id'], type, amount, noteController.text.trim());
+      _showSnack('${isDebit ? 'Debit' : 'Credit'} of Rs $amount added for ${customer['name']}');
+      _load();
+    } catch (e) {
+      _showSnack('Failed: $e');
+    }
+  }
+
   Widget _buildSummaryCard(String title, String value, IconData icon, Color color) {
     return Expanded(
       child: Card(
@@ -363,10 +417,15 @@ class _OwnerDashboardState extends State<OwnerDashboard> {
                                   ),
                                   PopupMenuButton<String>(
                                     onSelected: (value) {
+                                      if (value == 'debit') _showQuickTransactionDialog(c, 'udhaar');
+                                      if (value == 'credit') _showQuickTransactionDialog(c, 'wasooli');
                                       if (value == 'edit') _showEditCustomerDialog(c);
                                       if (value == 'delete') _deleteCustomer(c['id'], c['name']);
                                     },
                                     itemBuilder: (_) => [
+                                      const PopupMenuItem(value: 'debit', child: Text('➕ Add Debit (Udhaar)')),
+                                      const PopupMenuItem(value: 'credit', child: Text('➖ Add Credit (Wasooli)')),
+                                      const PopupMenuDivider(),
                                       const PopupMenuItem(value: 'edit', child: Text('Edit')),
                                       const PopupMenuItem(value: 'delete', child: Text('Delete')),
                                     ],
