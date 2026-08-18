@@ -187,7 +187,9 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
       appBar: AppBar(title: Text(_customer!['name'])),
       body: RefreshIndicator(
         onRefresh: _load,
-        child: Column(
+        // Use a ListView as the direct child so RefreshIndicator finds a Scrollable descendant.
+        child: ListView(
+          padding: EdgeInsets.zero,
           children: [
             Container(
               width: double.infinity,
@@ -235,58 +237,55 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
                 ),
               ),
             const Divider(height: 1),
-            Expanded(
-              child: transactions.isEmpty
-                  ? const Center(child: Text('No transactions yet', style: TextStyle(color: Colors.grey)))
-                  : ListView.builder(
-                      itemCount: transactions.length,
-                      itemBuilder: (context, index) {
-                        final t = transactions[index];
-                        final isDebit = t['type'] == 'udhaar';
-                        DateTime? parsedDate;
-                        try {
-                          parsedDate = DateTime.parse(t['created_at']);
-                        } catch (_) {}
-                        return ListTile(
-                          leading: Icon(
-                            isDebit ? Icons.arrow_upward : Icons.arrow_downward,
-                            color: isDebit ? Colors.red : Colors.green,
+            if (transactions.isEmpty)
+              const Padding(
+                padding: EdgeInsets.all(24.0),
+                child: Center(child: Text('No transactions yet', style: TextStyle(color: Colors.grey))),
+              )
+            else ...transactions.map<Widget>((t) {
+              final isDebit = t['type'] == 'udhaar';
+              DateTime? parsedDate;
+              try {
+                parsedDate = DateTime.parse(t['created_at']);
+              } catch (_) {}
+              return ListTile(
+                leading: Icon(
+                  isDebit ? Icons.arrow_upward : Icons.arrow_downward,
+                  color: isDebit ? Colors.red : Colors.green,
+                ),
+                title: Text(isDebit ? 'Udhaar (Debit)' : 'Wasooli (Credit)'),
+                subtitle: Text(
+                  [
+                    if (t['note'] != null && t['note'].toString().isNotEmpty) t['note'],
+                    if (parsedDate != null) dateFormat.format(parsedDate),
+                  ].join(' · '),
+                ),
+                trailing: widget.readOnly
+                    ? Text(
+                        'Rs ${(t['amount'] as num).toStringAsFixed(0)}',
+                        style: TextStyle(fontWeight: FontWeight.bold, color: isDebit ? Colors.red : Colors.green),
+                      )
+                    : Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            'Rs ${(t['amount'] as num).toStringAsFixed(0)}',
+                            style: TextStyle(fontWeight: FontWeight.bold, color: isDebit ? Colors.red : Colors.green),
                           ),
-                          title: Text(isDebit ? 'Udhaar (Debit)' : 'Wasooli (Credit)'),
-                          subtitle: Text(
-                            [
-                              if (t['note'] != null && t['note'].toString().isNotEmpty) t['note'],
-                              if (parsedDate != null) dateFormat.format(parsedDate),
-                            ].join(' · '),
+                          PopupMenuButton<String>(
+                            onSelected: (value) {
+                              if (value == 'edit') _showEditDialog(t);
+                              if (value == 'delete') _deleteEntry(t['id']);
+                            },
+                            itemBuilder: (_) => [
+                              const PopupMenuItem(value: 'edit', child: Text('Edit')),
+                              const PopupMenuItem(value: 'delete', child: Text('Delete')),
+                            ],
                           ),
-                          trailing: widget.readOnly
-                              ? Text(
-                                  'Rs ${(t['amount'] as num).toStringAsFixed(0)}',
-                                  style: TextStyle(fontWeight: FontWeight.bold, color: isDebit ? Colors.red : Colors.green),
-                                )
-                              : Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Text(
-                                      'Rs ${(t['amount'] as num).toStringAsFixed(0)}',
-                                      style: TextStyle(fontWeight: FontWeight.bold, color: isDebit ? Colors.red : Colors.green),
-                                    ),
-                                    PopupMenuButton<String>(
-                                      onSelected: (value) {
-                                        if (value == 'edit') _showEditDialog(t);
-                                        if (value == 'delete') _deleteEntry(t['id']);
-                                      },
-                                      itemBuilder: (_) => [
-                                        const PopupMenuItem(value: 'edit', child: Text('Edit')),
-                                        const PopupMenuItem(value: 'delete', child: Text('Delete')),
-                                      ],
-                                    ),
-                                  ],
-                                ),
-                        );
-                      },
-                    ),
-            ),
+                        ],
+                      ),
+              );
+            }).toList(),
           ],
         ),
       ),
