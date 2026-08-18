@@ -2,6 +2,20 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
+/// Custom exception for sync errors that includes error code and details
+class SyncException implements Exception {
+  final String message;
+  final String errorCode;
+  final String details;
+
+  SyncException(this.message, this.errorCode, this.details);
+
+  @override
+  String toString() => message;
+
+  String get fullMessage => '$message\n\n$details';
+}
+
 /// Central place for talking to the backend.
 ///
 /// Right now this points at your own laptop's backend (localhost),
@@ -77,6 +91,37 @@ class ApiService {
     }
   }
 
+  static Future<void> updateCustomer(int id, String name, String phone) async {
+    final res = await http.put(
+      Uri.parse('$baseUrl/api/customers/$id'),
+      headers: await _headers(),
+      body: jsonEncode({'name': name, 'phone': phone}),
+    );
+    if (res.statusCode != 200) {
+      throw Exception(jsonDecode(res.body)['error'] ?? 'Failed to update customer');
+    }
+  }
+
+  static Future<void> deleteCustomer(int id) async {
+    final res = await http.delete(
+      Uri.parse('$baseUrl/api/customers/$id'),
+      headers: await _headers(),
+    );
+    if (res.statusCode != 200) {
+      throw Exception(jsonDecode(res.body)['error'] ?? 'Failed to delete customer');
+    }
+  }
+
+  static Future<double> getCustomersTotalBalance() async {
+    final res = await http.get(
+      Uri.parse('$baseUrl/api/customers/stats/total-balance'),
+      headers: await _headers(),
+    );
+    if (res.statusCode != 200) return 0.0;
+    final data = jsonDecode(res.body);
+    return (data['totalBalance'] as num?)?.toDouble() ?? 0.0;
+  }
+
   // ---- Transactions ----
   static Future<List<dynamic>> getTransactions() async {
     final res = await http.get(Uri.parse('$baseUrl/api/transactions'), headers: await _headers());
@@ -118,6 +163,22 @@ class ApiService {
     return jsonDecode(res.body);
   }
 
+  static Future<Map<String, dynamic>> getMonthlyExpenseTotal(String category) async {
+    final res = await http.get(Uri.parse('$baseUrl/api/expenses/monthly-total/$category'), headers: await _headers());
+    if (res.statusCode != 200) {
+      throw Exception(jsonDecode(res.body)['error'] ?? 'Failed to fetch monthly total');
+    }
+    return jsonDecode(res.body);
+  }
+
+  static Future<Map<String, dynamic>> getDailyExpenseTotal(String category) async {
+    final res = await http.get(Uri.parse('$baseUrl/api/expenses/daily-total/$category'), headers: await _headers());
+    if (res.statusCode != 200) {
+      throw Exception(jsonDecode(res.body)['error'] ?? 'Failed to fetch daily total');
+    }
+    return jsonDecode(res.body);
+  }
+
   static Future<void> addExpense(String category, double amount, String note) async {
     final res = await http.post(
       Uri.parse('$baseUrl/api/expenses/$category'),
@@ -155,7 +216,12 @@ class ApiService {
       body: jsonEncode(tabName != null ? {'tabName': tabName} : {}),
     );
     final data = jsonDecode(res.body);
-    if (res.statusCode != 200) throw Exception(data['error'] ?? 'Sync failed');
+    if (res.statusCode != 200) {
+      final errorMessage = data['error'] ?? 'Sync failed';
+      final errorCode = data['errorCode'] ?? 'UNKNOWN_ERROR';
+      final details = data['details'] ?? '';
+      throw SyncException(errorMessage, errorCode, details);
+    }
     return data;
   }
 
@@ -184,5 +250,29 @@ class ApiService {
     if (res.statusCode != 200) {
       throw Exception(jsonDecode(res.body)['error'] ?? 'Failed to resolve entry');
     }
+  }
+
+  static Future<Map<String, dynamic>> bulkRejectPending(List<int> pendingIds) async {
+    final res = await http.post(
+      Uri.parse('$baseUrl/api/sheets-sync/bulk-reject'),
+      headers: await _headers(),
+      body: jsonEncode({'pendingIds': pendingIds}),
+    );
+    if (res.statusCode != 200) {
+      throw Exception(jsonDecode(res.body)['error'] ?? 'Failed to bulk reject');
+    }
+    return jsonDecode(res.body);
+  }
+
+  static Future<Map<String, dynamic>> bulkApproveAsCreate(List<int> pendingIds) async {
+    final res = await http.post(
+      Uri.parse('$baseUrl/api/sheets-sync/bulk-approve-as-create'),
+      headers: await _headers(),
+      body: jsonEncode({'pendingIds': pendingIds}),
+    );
+    if (res.statusCode != 200) {
+      throw Exception(jsonDecode(res.body)['error'] ?? 'Failed to bulk approve');
+    }
+    return jsonDecode(res.body);
   }
 }

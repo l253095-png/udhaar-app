@@ -15,12 +15,18 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   int _pendingCount = 0;
+  double _monthlyExpenseTotal = 0.0;
+  double _udhaarSystemTotal = 0.0;
+  double _mainBranchPurchaseTotal = 0.0;
   bool _syncing = false;
 
   @override
   void initState() {
     super.initState();
     _loadPendingCount();
+    _loadMonthlyExpenseTotal();
+    _loadUdhaarSystemTotal();
+    _loadMainBranchPurchaseTotal();
   }
 
   Future<void> _loadPendingCount() async {
@@ -32,8 +38,31 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  void _showSnack(String msg) {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+  Future<void> _loadMonthlyExpenseTotal() async {
+    try {
+      final data = await ApiService.getMonthlyExpenseTotal('monthly_expense');
+      if (mounted) setState(() => _monthlyExpenseTotal = (data['total'] as num).toDouble());
+    } catch (_) {
+      // ignore - just won't show if this fails
+    }
+  }
+
+  Future<void> _loadUdhaarSystemTotal() async {
+    try {
+      final total = await ApiService.getCustomersTotalBalance();
+      if (mounted) setState(() => _udhaarSystemTotal = total);
+    } catch (_) {
+      // ignore
+    }
+  }
+
+  Future<void> _loadMainBranchPurchaseTotal() async {
+    try {
+      final data = await ApiService.getMonthlyExpenseTotal('daily_main_branch_purchase');
+      if (mounted) setState(() => _mainBranchPurchaseTotal = (data['total'] as num).toDouble());
+    } catch (_) {
+      // ignore
+    }
   }
 
   /// The ONE sync button for the whole app.
@@ -51,10 +80,38 @@ class _HomeScreenState extends State<HomeScreen> {
       );
       _loadPendingCount();
     } catch (e) {
-      _showSnack('Sync failed: $e');
+      String errorMessage;
+      if (e is SyncException) {
+        errorMessage = e.fullMessage;
+      } else {
+        errorMessage = 'Sync failed: $e';
+      }
+      _showErrorDialog(errorMessage);
     } finally {
       setState(() => _syncing = false);
     }
+  }
+
+  void _showSnack(String msg) {
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+  }
+
+  void _showErrorDialog(String message) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Sync Failed'),
+        content: SingleChildScrollView(
+          child: Text(message),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('OK'),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
@@ -82,7 +139,14 @@ class _HomeScreenState extends State<HomeScreen> {
         label: Text(_syncing ? 'Syncing...' : 'Sync from Google Sheet'),
       ),
       body: RefreshIndicator(
-        onRefresh: _loadPendingCount,
+        onRefresh: () async {
+          await Future.wait([
+            _loadPendingCount(),
+            _loadMonthlyExpenseTotal(),
+            _loadUdhaarSystemTotal(),
+            _loadMainBranchPurchaseTotal(),
+          ]);
+        },
         child: ListView(
           padding: const EdgeInsets.all(16),
           children: [
@@ -115,15 +179,17 @@ class _HomeScreenState extends State<HomeScreen> {
                   title: 'Udhaar System',
                   icon: Icons.receipt_long,
                   color: Colors.teal,
+                  subtitle: 'Outstanding: Rs ${_udhaarSystemTotal.abs().toStringAsFixed(0)}',
                   onTap: () async {
                     await Navigator.of(context).push(MaterialPageRoute(builder: (_) => const OwnerDashboard()));
-                    _loadPendingCount();
+                    _loadUdhaarSystemTotal();
                   },
                 ),
                 _ModuleTile(
                   title: 'Monthly Expense',
                   icon: Icons.calendar_month,
                   color: Colors.orange,
+                  subtitle: 'Total: Rs ${_monthlyExpenseTotal.toStringAsFixed(0)}',
                   onTap: () => Navigator.of(context).push(MaterialPageRoute(
                       builder: (_) => const ExpenseListScreen(category: 'monthly_expense', title: 'Monthly Expense'))),
                 ),
@@ -135,12 +201,13 @@ class _HomeScreenState extends State<HomeScreen> {
                       builder: (_) => const ExpenseListScreen(category: 'daily_online', title: 'Daily Online'))),
                 ),
                 _ModuleTile(
-                  title: 'Daily Main Branch Purchase',
+                  title: 'Main Branch Purchase',
                   icon: Icons.store,
                   color: Colors.brown,
+                  subtitle: 'Monthly: Rs ${_mainBranchPurchaseTotal.toStringAsFixed(0)}',
                   onTap: () => Navigator.of(context).push(MaterialPageRoute(
                       builder: (_) => const ExpenseListScreen(
-                          category: 'daily_main_branch_purchase', title: 'Daily Main Branch Purchase'))),
+                          category: 'daily_main_branch_purchase', title: 'Main Branch Purchase'))),
                 ),
               ],
             ),
@@ -156,8 +223,15 @@ class _ModuleTile extends StatelessWidget {
   final IconData icon;
   final Color color;
   final VoidCallback onTap;
+  final String? subtitle;
 
-  const _ModuleTile({required this.title, required this.icon, required this.color, required this.onTap});
+  const _ModuleTile({
+    required this.title,
+    required this.icon,
+    required this.color,
+    required this.onTap,
+    this.subtitle,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -183,6 +257,17 @@ class _ModuleTile extends StatelessWidget {
                 style: TextStyle(fontWeight: FontWeight.bold, color: color),
               ),
             ),
+            if (subtitle != null) ...[
+              const SizedBox(height: 4),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 8),
+                child: Text(
+                  subtitle!,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontSize: 12, color: color.withOpacity(0.7)),
+                ),
+              ),
+            ],
           ],
         ),
       ),

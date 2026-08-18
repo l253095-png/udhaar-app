@@ -16,7 +16,6 @@ try {
 
 // ============================================================
 // SHEET LAYOUT (matches the owner's real daily ledger sheet)
-// Each day has its own tab, named like "3.4.2026" (d.M.yyyy)
 // ============================================================
 const BLOCKS = [
   // Udhaar (debit) - customer took goods, owes money
@@ -27,36 +26,109 @@ const BLOCKS = [
   { range: 'M2:N16', nameCol: 0, amountCol: 1, type: 'wasooli', key: 'wasooli2' },
 ];
 
-// Single running-total cells that feed the 3 dashboard expense modules
 const SINGLE_CELLS = {
-  monthly_expense: 'D51', // "Daily Expense" cell - daily figure, rolled up into Monthly Expense screen
+  monthly_expense: 'D51',
   daily_online: 'J72',
   daily_main_branch_purchase: 'N24',
 };
 
-function getSheetsClient() {
+function getAuthClient() {
   const keyPath =
     process.env.GOOGLE_SERVICE_ACCOUNT_KEY_PATH ||
     path.join(__dirname, '..', 'config', 'service-account-key.json');
 
   const auth = new google.auth.GoogleAuth({
     keyFile: keyPath,
-    scopes: ['https://www.googleapis.com/auth/spreadsheets'],
+    scopes: [
+      'https://www.googleapis.com/auth/spreadsheets',
+      'https://www.googleapis.com/auth/drive',
+    ],
   });
+  return auth;
+}
+
+function getSheetsClient(auth) {
   return google.sheets({ version: 'v4', auth });
 }
 
-/** Today's tab name in the sheet's own format, e.g. "3.4.2026" (no leading zeros). */
-function todayTabName() {
-  const now = new Date();
-  return `${now.getDate()}.${now.getMonth() + 1}.${now.getFullYear()}`;
+function getDriveClient(auth) {
+  return google.drive({ version: 'v3', auth });
 }
 
-/** Converts a tab name like "3.4.2026" into an ISO date "2026-04-03" for storage. */
-function tabNameToIsoDate(tabName) {
-  const [d, m, y] = tabName.split('.').map((n) => parseInt(n, 10));
-  if (!d || !m || !y) return new Date().toISOString().slice(0, 10);
-  return `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+async function getFirstSheetName(sheetId) {
+  const auth = getAuthClient();
+  const sheets = getSheetsClient(auth);
+
+  try {
+    const response = await sheets.spreadsheets.get({
+      spreadsheetId: sheetId,
+      fields: 'sheets(properties(title))',
+    });
+
+    const sheetList = response.data.sheets || [];
+    if (sheetList.length === 0) {
+      throw {
+        error: 'The spreadsheet has no sheets.',
+        errorCode: 'NO_SHEETS_IN_SPREADSHEET',
+        details: 'The spreadsheet must contain at least one sheet/tab. Please add a sheet and try again.',
+      };
+    }
+
+    const firstSheetName = sheetList[0].properties.title;
+    console.log(`[Sheets Sync] Using first sheet: "${firstSheetName}"`);
+    return firstSheetName;
+  } catch (err) {
+    if (err.errorCode) throw err;
+    throw {
+      error: 'Failed to retrieve sheet information from the spreadsheet.',
+      errorCode: 'SHEET_METADATA_ERROR',
+      details: `Unable to read sheet metadata. Error: ${err.message}. Ensure the service account has Sheets API access.`,
+    };
+  }
+}
+
+async function getLatestSheetIdFromFolder() {
+  const folderId = process.env.GOOGLE_DRIVE_FOLDER_ID;
+  if (!folderId) {
+    throw {
+      error: 'Google Drive folder ID is not configured.',
+      errorCode: 'MISSING_FOLDER_ID',
+      details: 'The GOOGLE_DRIVE_FOLDER_ID environment variable is not set in .env file.',
+    };
+  }
+
+  const auth = getAuthClient();
+  const drive = getDriveClient(auth);
+
+  try {
+    const response = await drive.files.list({
+      q: `'${folderId}' in parents and mimeType='application/vnd.google-apps.spreadsheet' and trashed=false`,
+      spaces: 'drive',
+      fields: 'files(id, name, modifiedTime)',
+      orderBy: 'modifiedTime desc',
+      pageSize: 1,
+    });
+
+    const files = response.data.files || [];
+    if (files.length === 0) {
+      throw {
+        error: 'No Google Sheets found in the configured folder.',
+        errorCode: 'NO_SHEETS_FOUND',
+        details: `Folder ID: ${folderId}. Please ensure at least one Google Sheet exists in this folder.`,
+      };
+    }
+
+    const latestSheet = files[0];
+    console.log(`[Sheets Sync] Using latest sheet: "${latestSheet.name}" (ID: ${latestSheet.id})`);
+    return latestSheet.id;
+  } catch (err) {
+    if (err.errorCode) throw err;
+    throw {
+      error: 'Failed to fetch the latest Google Sheet from your Drive folder.',
+      errorCode: 'DRIVE_API_ERROR',
+      details: `${err.message || 'Unknown error'}`,
+    };
+  }
 }
 
 function notify(customer, type, amount, newBalance) {
@@ -88,7 +160,19 @@ function findBestFuzzyMatch(sheetName, allCustomers) {
   return bestScore > 0 ? best : null;
 }
 
-function applyTransaction(customerId, type, amount, source, userId) {
+// UPDATED: Dynamic duplicate checking with default isoDate
+function applyTransaction(customerId, type, amount, source, userId, isoDate = new Date().toISOString().slice(0, 10)) {
+  const existing = db
+    .prepare(
+      "SELECT * FROM transactions WHERE customer_id = ? AND type = ? AND amount = ? AND source = ? AND (date(created_at) = date(?) OR DATE(created_at) = DATE('now', 'localtime'))"
+    )
+    .get(customerId, type, amount, source, isoDate);
+  
+  if (existing) {
+    console.log(`[Sheets Sync] Skipping duplicate transaction for customer ${customerId}: ${type} Rs${amount}`);
+    return db.prepare('SELECT * FROM customers WHERE id = ?').get(customerId);
+  }
+
   const balanceChange = type === 'udhaar' ? amount : -amount;
   db.prepare(
     'INSERT INTO transactions (customer_id, type, amount, source, created_by) VALUES (?, ?, ?, ?, ?)'
@@ -97,7 +181,6 @@ function applyTransaction(customerId, type, amount, source, userId) {
   return db.prepare('SELECT * FROM customers WHERE id = ?').get(customerId);
 }
 
-/** Inserts or updates a single running-total expense figure for one day, without duplicating. */
 function upsertDailyExpense(category, isoDate, amount, userId) {
   const existing = db
     .prepare("SELECT * FROM expenses WHERE category = ? AND entry_date = ? AND source = 'google_sheet'")
@@ -112,14 +195,16 @@ function upsertDailyExpense(category, isoDate, amount, userId) {
 }
 
 // POST /api/sheets-sync/run
-// Body (optional): { tabName: "3.4.2026" } - defaults to today.
 router.post('/run', async (req, res) => {
-  const tabName = (req.body && req.body.tabName) || todayTabName();
-  const isoDate = tabNameToIsoDate(tabName);
-
   try {
-    const sheets = getSheetsClient();
-    const sheetId = process.env.GOOGLE_SHEET_ID;
+    const auth = getAuthClient();
+    const sheets = getSheetsClient(auth);
+    const sheetId = await getLatestSheetIdFromFolder();
+    const tabName = await getFirstSheetName(sheetId);
+    
+    const today = new Date();
+    const isoDate = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+    
     const allCustomers = db.prepare('SELECT * FROM customers').all();
 
     const alreadySynced = (rowKey) =>
@@ -134,7 +219,6 @@ router.post('/run', async (req, res) => {
     let processedCount = 0;
     let pendingCount = 0;
 
-    // ---- 1. Udhaar / Wasooli name+amount blocks ----
     for (const block of BLOCKS) {
       const result = await sheets.spreadsheets.values.get({
         spreadsheetId: sheetId,
@@ -159,7 +243,7 @@ router.post('/run', async (req, res) => {
         );
 
         if (exactMatch) {
-          const updated = applyTransaction(exactMatch.id, block.type, amount, 'google_sheet', req.user.id);
+          const updated = applyTransaction(exactMatch.id, block.type, amount, 'google_sheet', req.user.id, isoDate);
           notify(exactMatch, block.type, amount, updated.balance);
           processedCount++;
         } else {
@@ -178,7 +262,6 @@ router.post('/run', async (req, res) => {
       }
     }
 
-    // ---- 2. Single-cell daily totals -> Monthly Expense / Daily Online / Main Branch Purchase ----
     const cellRefs = Object.values(SINGLE_CELLS).map((cell) => `'${tabName}'!${cell}`);
     const batchResult = await sheets.spreadsheets.values.batchGet({
       spreadsheetId: sheetId,
@@ -188,7 +271,7 @@ router.post('/run', async (req, res) => {
     const categories = Object.keys(SINGLE_CELLS);
     categories.forEach((category, idx) => {
       const valueRange = batchResult.data.valueRanges[idx];
-      if (!valueRange) return; // Skip if range is empty or doesn't exist
+      if (!valueRange) return;
       const raw = valueRange.values && valueRange.values[0] && valueRange.values[0][0];
       const amount = parseFloat(raw);
       if (!isNaN(amount)) {
@@ -200,27 +283,24 @@ router.post('/run', async (req, res) => {
       'INSERT INTO sync_log (rows_synced, new_customers_flagged, synced_by) VALUES (?, ?, ?)'
     ).run(processedCount, pendingCount, req.user.id);
 
-    res.json({ processedCount, pendingCount, tabName });
+    res.json({ success: true, processedCount, pendingCount, tabName });
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'Sync failed', details: err.message, tabName });
+    console.error('[Sheets Sync Error]', err);
+    res.status(500).json({ success: false, error: err.message });
   }
 });
 
-// GET /api/sheets-sync/pending
+// Pending Endpoints
 router.get('/pending', (req, res) => {
   const pending = db.prepare('SELECT * FROM pending_sheet_syncs ORDER BY created_at DESC').all();
   res.json(pending);
 });
 
-// GET /api/sheets-sync/pending-count
 router.get('/pending-count', (req, res) => {
   const { count } = db.prepare('SELECT COUNT(*) as count FROM pending_sheet_syncs').get();
   res.json({ count });
 });
 
-// POST /api/sheets-sync/approve
-// Body: { pendingId, action: 'link' | 'create' | 'reject', customerId?, newCustomerName? }
 router.post('/approve', (req, res) => {
   const { pendingId, action, customerId, newCustomerName } = req.body;
   const pending = db.prepare('SELECT * FROM pending_sheet_syncs WHERE id = ?').get(pendingId);
@@ -243,7 +323,9 @@ router.post('/approve', (req, res) => {
       return res.status(400).json({ error: 'action must be link (with customerId), create, or reject' });
     }
 
-    const updated = applyTransaction(targetCustomerId, pending.type, pending.amount, 'google_sheet', req.user.id);
+    const today = new Date();
+    const isoDate = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+    const updated = applyTransaction(targetCustomerId, pending.type, pending.amount, 'google_sheet', req.user.id, isoDate);
     notify(updated, pending.type, pending.amount, updated.balance);
 
     db.prepare('DELETE FROM pending_sheet_syncs WHERE id = ?').run(pendingId);
@@ -251,6 +333,69 @@ router.post('/approve', (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Failed to resolve entry', details: err.message });
+  }
+});
+
+router.post('/bulk-reject', (req, res) => {
+  const { pendingIds } = req.body;
+  if (!Array.isArray(pendingIds) || pendingIds.length === 0) {
+    return res.status(400).json({ error: 'pendingIds must be a non-empty array' });
+  }
+
+  try {
+    let rejectedCount = 0;
+    for (const pendingId of pendingIds) {
+      const pending = db.prepare('SELECT * FROM pending_sheet_syncs WHERE id = ?').get(pendingId);
+      if (pending) {
+        db.prepare('DELETE FROM pending_sheet_syncs WHERE id = ?').run(pendingId);
+        rejectedCount++;
+      }
+    }
+    res.json({ message: 'Entries rejected', rejectedCount });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to bulk reject', details: err.message });
+  }
+});
+
+router.post('/bulk-approve-as-create', (req, res) => {
+  const { pendingIds } = req.body;
+  if (!Array.isArray(pendingIds) || pendingIds.length === 0) {
+    return res.status(400).json({ error: 'pendingIds must be a non-empty array' });
+  }
+
+  try {
+    let approvedCount = 0;
+    const createdCustomerIds = [];
+    
+    const today = new Date();
+    const isoDate = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+    
+    for (const pendingId of pendingIds) {
+      const pending = db.prepare('SELECT * FROM pending_sheet_syncs WHERE id = ?').get(pendingId);
+      if (!pending) continue;
+
+      const info = db
+        .prepare('INSERT INTO customers (name, phone) VALUES (?, ?)')
+        .run(pending.sheet_name, pending.phone || null);
+      const customerId = info.lastInsertRowid;
+      createdCustomerIds.push(customerId);
+
+      const updated = applyTransaction(customerId, pending.type, pending.amount, 'google_sheet', req.user.id, isoDate);
+      notify(updated, pending.type, pending.amount, updated.balance);
+
+      db.prepare('DELETE FROM pending_sheet_syncs WHERE id = ?').run(pendingId);
+      approvedCount++;
+    }
+
+    res.json({ 
+      message: 'Entries approved and customers created', 
+      approvedCount, 
+      createdCustomerIds 
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to bulk approve', details: err.message });
   }
 });
 

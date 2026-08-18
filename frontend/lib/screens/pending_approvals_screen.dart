@@ -30,6 +30,76 @@ class _PendingApprovalsScreenState extends State<PendingApprovalsScreen> {
     }
   }
 
+  Future<void> _bulkApproveAsCreate() async {
+    if (_pending.isEmpty) return;
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('Approve All Entries?'),
+        content: Text('Create new customers for all ${_pending.length} pending entries and import transactions.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Approve All'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return;
+
+    try {
+      final pendingIds = _pending.map<int>((item) => item['id'] as int).toList();
+      await ApiService.bulkApproveAsCreate(pendingIds);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('${_pending.length} entries approved and customers created')),
+        );
+      }
+      _load();
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed: $e')));
+    }
+  }
+
+  Future<void> _bulkReject() async {
+    if (_pending.isEmpty) return;
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('Reject All Entries?'),
+        content: Text('Reject all ${_pending.length} pending entries. No customers or transactions will be created.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Reject All'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return;
+
+    try {
+      final pendingIds = _pending.map<int>((item) => item['id'] as int).toList();
+      await ApiService.bulkRejectPending(pendingIds);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('${_pending.length} entries rejected')),
+        );
+      }
+      _load();
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed: $e')));
+    }
+  }
+
   Future<void> _link(Map<String, dynamic> item) async {
     try {
       await ApiService.resolvePendingSync(item['id'], 'link', customerId: item['suggested_customer_id']);
@@ -94,7 +164,27 @@ class _PendingApprovalsScreenState extends State<PendingApprovalsScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Pending Sheet Review')),
+      appBar: AppBar(
+        title: const Text('Pending Sheet Review'),
+        actions: _pending.isNotEmpty
+            ? [
+                Tooltip(
+                  message: 'Approve all entries as new customers',
+                  child: IconButton(
+                    icon: const Icon(Icons.check_circle),
+                    onPressed: _bulkApproveAsCreate,
+                  ),
+                ),
+                Tooltip(
+                  message: 'Reject all entries',
+                  child: IconButton(
+                    icon: const Icon(Icons.cancel),
+                    onPressed: _bulkReject,
+                  ),
+                ),
+              ]
+            : null,
+      ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : _pending.isEmpty

@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../services/api_service.dart';
 
 /// Shows one customer's balance + full transaction history.
@@ -17,6 +17,7 @@ class CustomerDetailScreen extends StatefulWidget {
 class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
   Map<String, dynamic>? _customer;
   bool _loading = true;
+  DateTimeRange? _selectedDateRange;
 
   @override
   void initState() {
@@ -38,19 +39,71 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
     }
   }
 
+  // Open Direct WhatsApp Reminder
+  Future<void> _sendWhatsAppReminder(double balance) async {
+    final phone = _customer?['phone'] ?? '';
+    final name = _customer?['name'] ?? 'Customer';
+
+    if (phone.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No phone number saved for this customer!')),
+      );
+      return;
+    }
+
+    final message = Uri.encodeComponent(
+      "Assalam-o-Alaikum $name,\n"
+      "Aapka remaining khata balance Rs ${balance.toStringAsFixed(0)} hai.\n"
+      "Barae karam baqaya wasooli jald az jald jama karwa dein. Shukriya!",
+    );
+
+    final cleanPhone = phone.replaceAll(RegExp(r'[^\d+]'), '');
+    final url = Uri.parse("https://wa.me/$cleanPhone?text=$message");
+
+    try {
+      if (await canLaunchUrl(url)) {
+        await launchUrl(url, mode: LaunchMode.externalApplication);
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Could not open WhatsApp.')),
+        );
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error launching WhatsApp: $e')),
+      );
+    }
+  }
+
+  // Date Range Picker Filter
+  Future<void> _pickDateRange() async {
+    final picked = await showDateRangePicker(
+      context: context,
+      firstDate: DateTime(2020),
+      lastDate: DateTime.now().add(const Duration(days: 1)),
+      initialDateRange: _selectedDateRange,
+    );
+
+    if (picked != null) {
+      setState(() => _selectedDateRange = picked);
+    }
+  }
+
   Future<void> _showEditDialog(Map<String, dynamic> txn) async {
     final amountController = TextEditingController(text: txn['amount'].toString());
-    final noteController = TextEditingController(text: txn['note']?.toString() ?? '');
+    final descriptionController = TextEditingController(text: txn['note']?.toString() ?? '');
     String type = txn['type'];
 
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (_) => StatefulBuilder(
         builder: (context, setDialogState) => AlertDialog(
-          title: const Text('Edit Entry'),
+          title: const Text('Edit Transaction'),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
+              const Text('Transaction Type:', style: TextStyle(fontWeight: FontWeight.bold)),
+              const SizedBox(height: 8),
               SegmentedButton<String>(
                 segments: const [
                   ButtonSegment(value: 'udhaar', label: Text('Debit')),
@@ -59,16 +112,24 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
                 selected: {type},
                 onSelectionChanged: (s) => setDialogState(() => type = s.first),
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: 16),
               TextField(
                 controller: amountController,
                 keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                decoration: const InputDecoration(labelText: 'Amount (Rs)', border: OutlineInputBorder()),
+                decoration: const InputDecoration(
+                  labelText: 'Amount (Rs)',
+                  border: OutlineInputBorder(),
+                ),
               ),
               const SizedBox(height: 12),
               TextField(
-                controller: noteController,
-                decoration: const InputDecoration(labelText: 'Note', border: OutlineInputBorder()),
+                controller: descriptionController,
+                maxLines: 3,
+                decoration: const InputDecoration(
+                  labelText: 'Description',
+                  hintText: 'e.g., Food, Rent, Supplies...',
+                  border: OutlineInputBorder(),
+                ),
               ),
             ],
           ),
@@ -85,7 +146,7 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
     if (amount == null || amount <= 0) return;
 
     try {
-      await ApiService.updateTransaction(txn['id'], type, amount, noteController.text.trim());
+      await ApiService.updateTransaction(txn['id'], type, amount, descriptionController.text.trim());
       _load();
     } catch (e) {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed: $e')));
@@ -120,8 +181,8 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
 
   Future<void> _showEntryDialog(String type) async {
     final amountController = TextEditingController();
-    final noteController = TextEditingController();
-    final isDebit = type == 'udhaar'; // udhaar = customer owes more (debit)
+    final descriptionController = TextEditingController();
+    final isDebit = type == 'udhaar';
 
     final confirmed = await showDialog<bool>(
       context: context,
@@ -134,12 +195,20 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
               controller: amountController,
               keyboardType: const TextInputType.numberWithOptions(decimal: true),
               autofocus: true,
-              decoration: const InputDecoration(labelText: 'Amount (Rs)', border: OutlineInputBorder()),
+              decoration: const InputDecoration(
+                labelText: 'Amount (Rs)',
+                border: OutlineInputBorder(),
+              ),
             ),
             const SizedBox(height: 12),
             TextField(
-              controller: noteController,
-              decoration: const InputDecoration(labelText: 'Note (optional)', border: OutlineInputBorder()),
+              controller: descriptionController,
+              maxLines: 3,
+              decoration: InputDecoration(
+                labelText: 'Description',
+                hintText: isDebit ? 'e.g., Food, Supplies, Rent...' : 'e.g., Payment received, Deposit...',
+                border: const OutlineInputBorder(),
+              ),
             ),
           ],
         ),
@@ -163,7 +232,7 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
     }
 
     try {
-      await ApiService.addTransaction(widget.customerId, type, amount, noteController.text.trim());
+      await ApiService.addTransaction(widget.customerId, type, amount, descriptionController.text.trim());
       _load();
     } catch (e) {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed: $e')));
@@ -179,25 +248,55 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
       return const Scaffold(body: Center(child: Text('Customer not found')));
     }
 
-    final balance = (_customer!['balance'] as num).toDouble();
-    final transactions = _customer!['transactions'] as List<dynamic>;
-    final dateFormat = DateFormat('dd MMM, hh:mm a');
+    final balance = ((_customer!['balance'] as num?) ?? 0).toDouble();
+    List<dynamic> rawTxns = _customer!['transactions'] as List<dynamic>? ?? [];
+
+    // Filter by Date Range
+    List<dynamic> transactions = rawTxns.where((t) {
+      if (_selectedDateRange == null) return true;
+      try {
+        final dt = DateTime.parse(t['created_at']);
+        return dt.isAfter(_selectedDateRange!.start.subtract(const Duration(seconds: 1))) &&
+            dt.isBefore(_selectedDateRange!.end.add(const Duration(days: 1)));
+      } catch (_) {
+        return true;
+      }
+    }).toList();
 
     return Scaffold(
-      appBar: AppBar(title: Text(_customer!['name'])),
+      appBar: AppBar(
+        title: Text(_customer!['name'] ?? 'Customer Detail'),
+        actions: [
+          // Filter by Date Action
+          IconButton(
+            icon: Icon(
+              _selectedDateRange != null ? Icons.filter_alt : Icons.filter_alt_outlined,
+              color: _selectedDateRange != null ? Colors.orange : null,
+            ),
+            tooltip: 'Filter by Date',
+            onPressed: _pickDateRange,
+          ),
+          if (_selectedDateRange != null)
+            IconButton(
+              icon: const Icon(Icons.clear_all),
+              tooltip: 'Clear Date Filter',
+              onPressed: () => setState(() => _selectedDateRange = null),
+            ),
+        ],
+      ),
       body: RefreshIndicator(
         onRefresh: _load,
-        // Use a ListView as the direct child so RefreshIndicator finds a Scrollable descendant.
         child: ListView(
           padding: EdgeInsets.zero,
           children: [
+            // TOP BALANCE CARD
             Container(
               width: double.infinity,
               padding: const EdgeInsets.all(20),
               color: balance > 0 ? Colors.red.shade50 : Colors.green.shade50,
               child: Column(
                 children: [
-                  Text(_customer!['phone'] ?? '', style: const TextStyle(color: Colors.grey)),
+                  Text(_customer!['phone'] ?? 'No phone', style: const TextStyle(color: Colors.grey)),
                   const SizedBox(height: 8),
                   Text(
                     'Rs ${balance.abs().toStringAsFixed(0)}',
@@ -207,10 +306,29 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
                       color: balance > 0 ? Colors.red : Colors.green,
                     ),
                   ),
-                  Text(balance > 0 ? 'Baqaya (Outstanding)' : 'Clear / Advance', style: const TextStyle(color: Colors.grey)),
+                  Text(
+                    balance > 0 ? 'Baqaya (Outstanding Udhaar)' : 'Clear / Advance',
+                    style: const TextStyle(color: Colors.grey),
+                  ),
+                  const SizedBox(height: 12),
+
+                  // WhatsApp Reminder Button
+                  if (balance > 0 && !widget.readOnly)
+                    ElevatedButton.icon(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF25D366), // WhatsApp Green
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                      ),
+                      onPressed: () => _sendWhatsAppReminder(balance),
+                      icon: const Icon(Icons.send),
+                      label: const Text('Send WhatsApp Reminder'),
+                    ),
                 ],
               ),
             ),
+
+            // ACTION BUTTONS (Debit / Credit)
             if (!widget.readOnly)
               Padding(
                 padding: const EdgeInsets.all(12.0),
@@ -218,7 +336,11 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
                   children: [
                     Expanded(
                       child: ElevatedButton.icon(
-                        style: ElevatedButton.styleFrom(backgroundColor: Colors.red, foregroundColor: Colors.white, padding: const EdgeInsets.symmetric(vertical: 14)),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.red,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                        ),
                         onPressed: () => _showEntryDialog('udhaar'),
                         icon: const Icon(Icons.remove_circle_outline),
                         label: const Text('Debit (Udhaar)'),
@@ -227,7 +349,11 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
                     const SizedBox(width: 12),
                     Expanded(
                       child: ElevatedButton.icon(
-                        style: ElevatedButton.styleFrom(backgroundColor: Colors.green, foregroundColor: Colors.white, padding: const EdgeInsets.symmetric(vertical: 14)),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.green,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                        ),
                         onPressed: () => _showEntryDialog('wasooli'),
                         icon: const Icon(Icons.add_circle_outline),
                         label: const Text('Credit (Wasooli)'),
@@ -236,56 +362,111 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
                   ],
                 ),
               ),
+
+            // DATE FILTER LABEL IF ACTIVE
+            if (_selectedDateRange != null)
+              Container(
+                color: Colors.orange.shade50,
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      'Filtered: ${_selectedDateRange!.start.toString().split(' ')[0]} to ${_selectedDateRange!.end.toString().split(' ')[0]}',
+                      style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.orange),
+                    ),
+                    InkWell(
+                      onTap: () => setState(() => _selectedDateRange = null),
+                      child: const Text('Reset', style: TextStyle(color: Colors.blue, fontWeight: FontWeight.bold)),
+                    ),
+                  ],
+                ),
+              ),
+
             const Divider(height: 1),
+
+            // TRANSACTIONS LIST
             if (transactions.isEmpty)
               const Padding(
                 padding: EdgeInsets.all(24.0),
-                child: Center(child: Text('No transactions yet', style: TextStyle(color: Colors.grey))),
+                child: Center(child: Text('No transactions found', style: TextStyle(color: Colors.grey))),
               )
-            else ...transactions.map<Widget>((t) {
-              final isDebit = t['type'] == 'udhaar';
-              DateTime? parsedDate;
-              try {
-                parsedDate = DateTime.parse(t['created_at']);
-              } catch (_) {}
-              return ListTile(
-                leading: Icon(
-                  isDebit ? Icons.arrow_upward : Icons.arrow_downward,
-                  color: isDebit ? Colors.red : Colors.green,
-                ),
-                title: Text(isDebit ? 'Udhaar (Debit)' : 'Wasooli (Credit)'),
-                subtitle: Text(
-                  [
-                    if (t['note'] != null && t['note'].toString().isNotEmpty) t['note'],
-                    if (parsedDate != null) dateFormat.format(parsedDate),
-                  ].join(' · '),
-                ),
-                trailing: widget.readOnly
-                    ? Text(
-                        'Rs ${(t['amount'] as num).toStringAsFixed(0)}',
-                        style: TextStyle(fontWeight: FontWeight.bold, color: isDebit ? Colors.red : Colors.green),
-                      )
-                    : Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
+            else
+              ...transactions.map<Widget>((t) {
+                final isDebit = t['type'] == 'udhaar';
+                DateTime? parsedDate;
+                String? dateStr;
+                String? timeStr;
+                try {
+                  parsedDate = DateTime.parse(t['created_at']);
+                  dateStr = parsedDate.toString().split(' ')[0]; // YYYY-MM-DD
+                  timeStr = '${parsedDate.hour.toString().padLeft(2, '0')}:${parsedDate.minute.toString().padLeft(2, '0')}';
+                } catch (_) {}
+
+                final description = t['note']?.toString() ?? 'No description';
+
+                return Card(
+                  margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  child: ListTile(
+                    leading: Icon(
+                      isDebit ? Icons.arrow_upward : Icons.arrow_downward,
+                      color: isDebit ? Colors.red : Colors.green,
+                      size: 28,
+                    ),
+                    title: Text(
+                      isDebit ? 'Udhaar (Debit)' : 'Wasooli (Credit)',
+                      style: const TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                    subtitle: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const SizedBox(height: 4),
+                        Text(
+                          'Description: $description',
+                          style: const TextStyle(fontSize: 12),
+                        ),
+                        if (dateStr != null && timeStr != null)
                           Text(
-                            'Rs ${(t['amount'] as num).toStringAsFixed(0)}',
-                            style: TextStyle(fontWeight: FontWeight.bold, color: isDebit ? Colors.red : Colors.green),
+                            'Date: $dateStr | Time: $timeStr',
+                            style: const TextStyle(fontSize: 12, color: Colors.grey),
                           ),
-                          PopupMenuButton<String>(
-                            onSelected: (value) {
-                              if (value == 'edit') _showEditDialog(t);
-                              if (value == 'delete') _deleteEntry(t['id']);
-                            },
-                            itemBuilder: (_) => [
-                              const PopupMenuItem(value: 'edit', child: Text('Edit')),
-                              const PopupMenuItem(value: 'delete', child: Text('Delete')),
+                      ],
+                    ),
+                    trailing: widget.readOnly
+                        ? Text(
+                            'Rs ${((t['amount'] as num?) ?? 0).toStringAsFixed(0)}',
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 16,
+                              color: isDebit ? Colors.red : Colors.green,
+                            ),
+                          )
+                        : Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                'Rs ${((t['amount'] as num?) ?? 0).toStringAsFixed(0)}',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 14,
+                                  color: isDebit ? Colors.red : Colors.green,
+                                ),
+                              ),
+                              PopupMenuButton<String>(
+                                onSelected: (value) {
+                                  if (value == 'edit') _showEditDialog(t);
+                                  if (value == 'delete') _deleteEntry(t['id']);
+                                },
+                                itemBuilder: (_) => [
+                                  const PopupMenuItem(value: 'edit', child: Text('Edit')),
+                                  const PopupMenuItem(value: 'delete', child: Text('Delete')),
+                                ],
+                              ),
                             ],
                           ),
-                        ],
-                      ),
-              );
-            }).toList(),
+                  ),
+                );
+              }).toList(),
           ],
         ),
       ),

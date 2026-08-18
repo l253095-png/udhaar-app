@@ -5,6 +5,13 @@ const { authenticate, ownerOnly } = require('../middleware/auth');
 const router = express.Router();
 router.use(authenticate); // all customer routes require login
 
+// GET /api/customers/stats/total-balance
+// Returns total outstanding balance across all customers
+router.get('/stats/total-balance', (req, res) => {
+  const result = db.prepare('SELECT SUM(balance) as totalBalance FROM customers').get();
+  res.json({ totalBalance: result.totalBalance || 0 });
+});
+
 // GET /api/customers - Owner and Worker can view. Optional ?search=name-or-phone
 router.get('/', (req, res) => {
   const { search } = req.query;
