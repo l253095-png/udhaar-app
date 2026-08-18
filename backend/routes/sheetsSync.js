@@ -188,6 +188,7 @@ router.post('/run', async (req, res) => {
     const categories = Object.keys(SINGLE_CELLS);
     categories.forEach((category, idx) => {
       const valueRange = batchResult.data.valueRanges[idx];
+      if (!valueRange) return; // Skip if range is empty or doesn't exist
       const raw = valueRange.values && valueRange.values[0] && valueRange.values[0][0];
       const amount = parseFloat(raw);
       if (!isNaN(amount)) {

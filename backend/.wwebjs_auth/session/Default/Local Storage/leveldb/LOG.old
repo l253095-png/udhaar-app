@@ -1,0 +1,6 @@
+2026/08/18-11:44:58.212 1cb4 Reusing MANIFEST C:\Users\HF\Desktop\udhaar-app\backend\.wwebjs_auth\session\Default\Local Storage\leveldb/MANIFEST-000001
+2026/08/18-11:44:58.218 1cb4 Recovering log #3
+2026/08/18-11:44:58.222 1cb4 Reusing old log C:\Users\HF\Desktop\udhaar-app\backend\.wwebjs_auth\session\Default\Local Storage\leveldb/000003.log 
+2026/08/18-11:45:58.241 39ec Level-0 table #5: started
+2026/08/18-11:45:58.261 39ec Level-0 table #5: 20221 bytes OK
+2026/08/18-11:45:58.268 39ec Delete type=0 #3
