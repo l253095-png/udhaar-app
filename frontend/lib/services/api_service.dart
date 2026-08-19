@@ -28,7 +28,7 @@ class SyncException implements Exception {
 ///
 /// Update PUBLIC_TUNNEL_URL below whenever the tunnel address changes.
 class ApiService {
-  static const String _publicTunnelUrl = 'https://approaches-std-reasonable-previously.trycloudflare.com';
+  static const String _publicTunnelUrl = 'https://pirates-solutions-bears-buzz.trycloudflare.com';
   static const String _localUrl = 'http://localhost:3000';
 
   static String get baseUrl {
