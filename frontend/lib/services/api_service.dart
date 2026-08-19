@@ -1,4 +1,6 @@
 import 'dart:convert';
+import 'dart:io' show Platform;
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -18,14 +20,23 @@ class SyncException implements Exception {
 
 /// Central place for talking to the backend.
 ///
-/// Right now this points at your own laptop's backend (localhost),
-/// since both the app and the backend are running on the same machine.
+/// This automatically picks the right address per platform:
+/// - Windows desktop app: talks to localhost, because it always runs
+///   on the SAME machine as the backend (laptop today, Shop PC later).
+/// - Android / Web: talks to the public tunnel URL, because it runs on
+///   a separate device that reaches the backend over the internet.
 ///
-/// Later, when the backend moves to the Shop PC + Cloudflare Tunnel,
-/// this ONE line is all you'll need to change:
-///   static const String baseUrl = 'https://your-tunnel-url.com';
+/// Update PUBLIC_TUNNEL_URL below whenever the tunnel address changes.
 class ApiService {
-  static const String baseUrl = 'https://approaches-std-reasonable-previously.trycloudflare.com';
+  static const String _publicTunnelUrl = 'https://approaches-std-reasonable-previously.trycloudflare.com';
+  static const String _localUrl = 'http://localhost:3000';
+
+  static String get baseUrl {
+    if (!kIsWeb && Platform.isWindows) {
+      return _localUrl;
+    }
+    return _publicTunnelUrl;
+  }
 
   static Future<String?> getToken() async {
     final prefs = await SharedPreferences.getInstance();
