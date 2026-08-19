@@ -231,103 +231,29 @@ class _OwnerDashboardState extends State<OwnerDashboard> {
     }
   }
 
-  /// Floating menu with quick reports: today's/month's credit & debit, and total customers.
-  void _showReportsMenu() {
-    showModalBottomSheet(
-      context: context,
-      builder: (_) => SafeArea(
-        child: Wrap(
-          children: [
-            const Padding(
-              padding: EdgeInsets.all(16),
-              child: Text('Reports', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-            ),
-            ListTile(
-              leading: const Icon(Icons.calendar_month, color: Colors.red),
-              title: const Text('Current Month — Debit (Udhaar)'),
-              onTap: () {
-                Navigator.pop(context);
-                Navigator.of(context).push(MaterialPageRoute(
-                  builder: (_) => const TransactionReportScreen(
-                      title: 'This Month — Debit', type: 'udhaar', period: 'month'),
-                ));
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.calendar_month, color: Colors.green),
-              title: const Text('Current Month — Credit (Wasooli)'),
-              onTap: () {
-                Navigator.pop(context);
-                Navigator.of(context).push(MaterialPageRoute(
-                  builder: (_) => const TransactionReportScreen(
-                      title: 'This Month — Credit', type: 'wasooli', period: 'month'),
-                ));
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.today, color: Colors.red),
-              title: const Text("Today's Debit Customers"),
-              onTap: () {
-                Navigator.pop(context);
-                Navigator.of(context).push(MaterialPageRoute(
-                  builder: (_) => const TransactionReportScreen(
-                      title: "Today's Debit", type: 'udhaar', period: 'today'),
-                ));
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.today, color: Colors.green),
-              title: const Text("Today's Credit Customers"),
-              onTap: () {
-                Navigator.pop(context);
-                Navigator.of(context).push(MaterialPageRoute(
-                  builder: (_) => const TransactionReportScreen(
-                      title: "Today's Credit", type: 'wasooli', period: 'today'),
-                ));
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.people, color: Colors.blueGrey),
-              title: Text('Total Customers (${_allCustomers.length})'),
-              subtitle: const Text('Shows the full customer list (this screen)'),
-              onTap: () {
-                Navigator.pop(context);
-                setState(() {
-                  _searchTerm = '';
-                });
-                _load();
-              },
-            ),
-            const SizedBox(height: 8),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildSummaryCard(String title, String value, IconData icon, Color color) {
-    return Expanded(
-      child: Card(
-        elevation: 2,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 12.0, horizontal: 8.0),
+  Widget _buildReportTile(String label, IconData icon, Color color, VoidCallback onTap) {
+    return Padding(
+      padding: const EdgeInsets.only(right: 8.0),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(10),
+        onTap: onTap,
+        child: Container(
+          width: 92,
+          padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 6),
+          decoration: BoxDecoration(
+            color: color.withOpacity(0.08),
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: color.withOpacity(0.25)),
+          ),
           child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(icon, color: color, size: 24),
-              const SizedBox(height: 6),
-              Text(
-                title,
-                style: const TextStyle(fontSize: 11, color: Colors.grey, fontWeight: FontWeight.bold),
-                textAlign: TextAlign.center,
-              ),
+              Icon(icon, color: color, size: 22),
               const SizedBox(height: 4),
-              FittedBox(
-                fit: BoxFit.scaleDown,
-                child: Text(
-                  value,
-                  style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: color),
-                ),
+              Text(
+                label,
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: color),
               ),
             ],
           ),
@@ -362,20 +288,56 @@ class _OwnerDashboardState extends State<OwnerDashboard> {
           ),
         ],
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _showReportsMenu,
-        child: const Icon(Icons.bar_chart),
-      ),
       body: Column(
         children: [
-          // SUMMARY CARDS AT TOP
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 4.0),
-            child: Row(
+          // REPORT QUICK-ACCESS TILES AT TOP
+          SizedBox(
+            height: 92,
+            child: ListView(
+              scrollDirection: Axis.horizontal,
+              padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 8.0),
               children: [
-                _buildSummaryCard('Total Udhaar', 'Rs ${_totalUdhaar.toStringAsFixed(0)}', Icons.account_balance_wallet, Colors.red),
-                _buildSummaryCard('Total Customers', '${_allCustomers.length}', Icons.people, Colors.blue),
-                _buildSummaryCard('With Udhaar', '$_borrowerCount', Icons.warning_amber_rounded, Colors.orange),
+                _buildReportTile(
+                  'This Month\nDebit',
+                  Icons.calendar_month,
+                  Colors.red,
+                  () => Navigator.of(context).push(MaterialPageRoute(
+                      builder: (_) => const TransactionReportScreen(
+                          title: 'This Month — Debit', type: 'udhaar', period: 'month'))),
+                ),
+                _buildReportTile(
+                  'This Month\nCredit',
+                  Icons.calendar_month,
+                  Colors.green,
+                  () => Navigator.of(context).push(MaterialPageRoute(
+                      builder: (_) => const TransactionReportScreen(
+                          title: 'This Month — Credit', type: 'wasooli', period: 'month'))),
+                ),
+                _buildReportTile(
+                  "Today's\nDebit",
+                  Icons.today,
+                  Colors.red,
+                  () => Navigator.of(context).push(MaterialPageRoute(
+                      builder: (_) => const TransactionReportScreen(
+                          title: "Today's Debit", type: 'udhaar', period: 'today'))),
+                ),
+                _buildReportTile(
+                  "Today's\nCredit",
+                  Icons.today,
+                  Colors.green,
+                  () => Navigator.of(context).push(MaterialPageRoute(
+                      builder: (_) => const TransactionReportScreen(
+                          title: "Today's Credit", type: 'wasooli', period: 'today'))),
+                ),
+                _buildReportTile(
+                  'Total\nCustomers (${_allCustomers.length})',
+                  Icons.people,
+                  Colors.blueGrey,
+                  () {
+                    setState(() => _searchTerm = '');
+                    _load();
+                  },
+                ),
               ],
             ),
           ),
