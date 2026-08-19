@@ -46,4 +46,41 @@ router.post('/create-worker', authenticate, ownerOnly, (req, res) => {
   res.status(201).json({ id: info.lastInsertRowid, name, username, role: 'worker' });
 });
 
+// GET /api/auth/workers - Owner only, list all worker accounts
+router.get('/workers', authenticate, ownerOnly, (req, res) => {
+  const workers = db
+    .prepare("SELECT id, name, username, created_at FROM users WHERE role = 'worker' ORDER BY created_at DESC")
+    .all();
+  res.json(workers);
+});
+
+// DELETE /api/auth/workers/:id - Owner only
+router.delete('/workers/:id', authenticate, ownerOnly, (req, res) => {
+  const worker = db.prepare("SELECT * FROM users WHERE id = ? AND role = 'worker'").get(req.params.id);
+  if (!worker) return res.status(404).json({ error: 'Worker not found' });
+
+  db.prepare('DELETE FROM users WHERE id = ?').run(req.params.id);
+  res.json({ message: 'Worker account deleted' });
+});
+
+// POST /api/auth/change-password - any logged-in user can change their OWN password
+router.post('/change-password', authenticate, (req, res) => {
+  const { currentPassword, newPassword } = req.body;
+  if (!currentPassword || !newPassword) {
+    return res.status(400).json({ error: 'currentPassword and newPassword required' });
+  }
+  if (newPassword.length < 4) {
+    return res.status(400).json({ error: 'New password must be at least 4 characters' });
+  }
+
+  const user = db.prepare('SELECT * FROM users WHERE id = ?').get(req.user.id);
+  const valid = bcrypt.compareSync(currentPassword, user.password_hash);
+  if (!valid) return res.status(401).json({ error: 'Current password is incorrect' });
+
+  const newHash = bcrypt.hashSync(newPassword, 10);
+  db.prepare('UPDATE users SET password_hash = ? WHERE id = ?').run(newHash, req.user.id);
+
+  res.json({ message: 'Password changed successfully' });
+});
+
 module.exports = router;

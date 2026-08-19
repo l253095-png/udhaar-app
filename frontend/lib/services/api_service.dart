@@ -285,4 +285,39 @@ class ApiService {
     }
     return jsonDecode(res.body);
   }
+
+  // ---- User management (Owner only, except change-password) ----
+  static Future<void> createWorker(String name, String username, String password) async {
+    final res = await http.post(
+      Uri.parse('$baseUrl/api/auth/create-worker'),
+      headers: await _headers(),
+      body: jsonEncode({'name': name, 'username': username, 'password': password}),
+    );
+    if (res.statusCode != 201) {
+      throw Exception(jsonDecode(res.body)['error'] ?? 'Failed to create worker');
+    }
+  }
+
+  static Future<List<dynamic>> getWorkers() async {
+    final res = await http.get(Uri.parse('$baseUrl/api/auth/workers'), headers: await _headers());
+    return jsonDecode(res.body);
+  }
+
+  static Future<void> deleteWorker(int id) async {
+    final res = await http.delete(Uri.parse('$baseUrl/api/auth/workers/$id'), headers: await _headers());
+    if (res.statusCode != 200) {
+      throw Exception(jsonDecode(res.body)['error'] ?? 'Failed to delete worker');
+    }
+  }
+
+  static Future<void> changePassword(String currentPassword, String newPassword) async {
+    final res = await http.post(
+      Uri.parse('$baseUrl/api/auth/change-password'),
+      headers: await _headers(),
+      body: jsonEncode({'currentPassword': currentPassword, 'newPassword': newPassword}),
+    );
+    if (res.statusCode != 200) {
+      throw Exception(jsonDecode(res.body)['error'] ?? 'Failed to change password');
+    }
+  }
 }
