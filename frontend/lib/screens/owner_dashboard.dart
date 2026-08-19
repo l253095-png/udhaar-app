@@ -247,13 +247,20 @@ class _OwnerDashboardState extends State<OwnerDashboard> {
           ),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
+            mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(icon, color: color, size: 22),
+              Icon(icon, color: color, size: 20),
               const SizedBox(height: 4),
-              Text(
-                label,
-                textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: color),
+              Flexible(
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: Text(
+                    label,
+                    textAlign: TextAlign.center,
+                    maxLines: 2,
+                    style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: color),
+                  ),
+                ),
               ),
             ],
           ),
@@ -292,7 +299,7 @@ class _OwnerDashboardState extends State<OwnerDashboard> {
         children: [
           // REPORT QUICK-ACCESS TILES AT TOP
           SizedBox(
-            height: 92,
+            height: 100,
             child: ListView(
               scrollDirection: Axis.horizontal,
               padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 8.0),
@@ -330,7 +337,7 @@ class _OwnerDashboardState extends State<OwnerDashboard> {
                           title: "Today's Credit", type: 'wasooli', period: 'today'))),
                 ),
                 _buildReportTile(
-                  'Total\nCustomers (${_allCustomers.length})',
+                  'Total\nCustomers',
                   Icons.people,
                   Colors.blueGrey,
                   () {
