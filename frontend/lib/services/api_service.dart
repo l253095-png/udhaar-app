@@ -25,7 +25,7 @@ class SyncException implements Exception {
 /// this ONE line is all you'll need to change:
 ///   static const String baseUrl = 'https://your-tunnel-url.com';
 class ApiService {
-  static const String baseUrl = 'https://trips-backup-defend-perceived.trycloudflare.com';
+  static const String baseUrl = 'https://approaches-std-reasonable-previously.trycloudflare.com';
 
   static Future<String?> getToken() async {
     final prefs = await SharedPreferences.getInstance();
