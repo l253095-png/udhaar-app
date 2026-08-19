@@ -13,7 +13,7 @@ db.exec(`
     username TEXT UNIQUE NOT NULL,
     password_hash TEXT NOT NULL,
     role TEXT NOT NULL CHECK(role IN ('owner', 'worker')),
-    created_at TEXT DEFAULT (datetime('now'))
+    created_at TEXT DEFAULT (datetime('now', 'localtime'))
   );
 
   -- phone is optional because customers created automatically from the
@@ -23,7 +23,7 @@ db.exec(`
     name TEXT NOT NULL,
     phone TEXT,
     balance REAL DEFAULT 0,
-    created_at TEXT DEFAULT (datetime('now'))
+    created_at TEXT DEFAULT (datetime('now', 'localtime'))
   );
 
   CREATE TABLE IF NOT EXISTS transactions (
@@ -34,7 +34,7 @@ db.exec(`
     note TEXT,
     source TEXT DEFAULT 'app',
     created_by INTEGER,
-    created_at TEXT DEFAULT (datetime('now')),
+    created_at TEXT DEFAULT (datetime('now', 'localtime')),
     FOREIGN KEY (customer_id) REFERENCES customers(id),
     FOREIGN KEY (created_by) REFERENCES users(id)
   );
@@ -44,7 +44,7 @@ db.exec(`
     rows_synced INTEGER DEFAULT 0,
     new_customers_flagged INTEGER DEFAULT 0,
     synced_by INTEGER,
-    synced_at TEXT DEFAULT (datetime('now'))
+    synced_at TEXT DEFAULT (datetime('now', 'localtime'))
   );
 
   -- Used by the 3 dashboard modules: Monthly Expense, Daily Online, Main Branch Purchase.
@@ -54,10 +54,10 @@ db.exec(`
     category TEXT NOT NULL CHECK(category IN ('monthly_expense', 'daily_online', 'daily_main_branch_purchase')),
     amount REAL NOT NULL,
     note TEXT,
-    entry_date TEXT DEFAULT (date('now')),
+    entry_date TEXT DEFAULT (date('now', 'localtime')),
     source TEXT DEFAULT 'app',
     created_by INTEGER,
-    created_at TEXT DEFAULT (datetime('now')),
+    created_at TEXT DEFAULT (datetime('now', 'localtime')),
     FOREIGN KEY (created_by) REFERENCES users(id)
   );
 
@@ -73,7 +73,7 @@ db.exec(`
     tab_name TEXT,
     suggested_customer_id INTEGER,
     suggested_customer_name TEXT,
-    created_at TEXT DEFAULT (datetime('now')),
+    created_at TEXT DEFAULT (datetime('now', 'localtime')),
     FOREIGN KEY (suggested_customer_id) REFERENCES customers(id)
   );
 
@@ -84,7 +84,7 @@ db.exec(`
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     tab_name TEXT NOT NULL,
     row_key TEXT NOT NULL,
-    created_at TEXT DEFAULT (datetime('now')),
+    created_at TEXT DEFAULT (datetime('now', 'localtime')),
     UNIQUE(tab_name, row_key)
   );
 `);

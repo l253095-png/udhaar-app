@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'dart:async';
+import 'package:intl/intl.dart';
 import 'owner_dashboard.dart';
 import 'expense_list_screen.dart';
 import 'pending_approvals_screen.dart';
@@ -20,6 +22,8 @@ class _HomeScreenState extends State<HomeScreen> {
   double _udhaarSystemTotal = 0.0;
   double _mainBranchPurchaseTotal = 0.0;
   bool _syncing = false;
+  DateTime _now = DateTime.now();
+  Timer? _clockTimer;
 
   @override
   void initState() {
@@ -28,6 +32,17 @@ class _HomeScreenState extends State<HomeScreen> {
     _loadMonthlyExpenseTotal();
     _loadUdhaarSystemTotal();
     _loadMainBranchPurchaseTotal();
+    // Live clock — ticks every second so the on-screen time is always current,
+    // and every new entry's timestamp can be visually cross-checked against it.
+    _clockTimer = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (mounted) setState(() => _now = DateTime.now());
+    });
+  }
+
+  @override
+  void dispose() {
+    _clockTimer?.cancel();
+    super.dispose();
   }
 
   Future<void> _loadPendingCount() async {
@@ -158,6 +173,28 @@ class _HomeScreenState extends State<HomeScreen> {
         child: ListView(
           padding: const EdgeInsets.all(16),
           children: [
+            // LIVE CLOCK — shows current date & time so entry timestamps can be
+            // visually verified against "right now" on the shop PC/laptop.
+            Card(
+              color: Colors.teal.shade50,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 12),
+                child: Column(
+                  children: [
+                    Text(
+                      DateFormat('hh:mm:ss a').format(_now),
+                      style: const TextStyle(fontSize: 32, fontWeight: FontWeight.bold, color: Colors.teal),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      DateFormat('EEEE, dd MMMM yyyy').format(_now),
+                      style: const TextStyle(fontSize: 14, color: Colors.grey),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
             if (_pendingCount > 0)
               Card(
                 color: Colors.amber.shade50,

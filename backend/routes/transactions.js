@@ -41,9 +41,9 @@ router.get('/', (req, res) => {
   }
 
   if (period === 'today') {
-    query += " AND date(t.created_at, 'localtime') = date('now', 'localtime')";
+    query += " AND date(t.created_at) = date('now', 'localtime')";
   } else if (period === 'month') {
-    query += " AND strftime('%Y-%m', t.created_at, 'localtime') = strftime('%Y-%m', 'now', 'localtime')";
+    query += " AND strftime('%Y-%m', t.created_at) = strftime('%Y-%m', 'now', 'localtime')";
   }
 
   query += ' ORDER BY t.created_at DESC LIMIT 500';
