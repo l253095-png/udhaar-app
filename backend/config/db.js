@@ -71,6 +71,8 @@ db.exec(`
     type TEXT NOT NULL CHECK(type IN ('udhaar', 'wasooli')),
     note TEXT,
     tab_name TEXT,
+    sheet_id TEXT,
+    marker_cell TEXT,
     suggested_customer_id INTEGER,
     suggested_customer_name TEXT,
     created_at TEXT DEFAULT (datetime('now', 'localtime')),

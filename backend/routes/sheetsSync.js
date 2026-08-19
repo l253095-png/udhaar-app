@@ -19,11 +19,11 @@ try {
 // ============================================================
 const BLOCKS = [
   // Udhaar (debit) - customer took goods, owes money
-  { range: 'A2:B50', nameCol: 0, amountCol: 1, type: 'udhaar', key: 'udhaar1' },
-  { range: 'A52:B71', nameCol: 0, amountCol: 1, type: 'udhaar', key: 'udhaar2' },
+  { range: 'A2:B50', nameCol: 0, amountCol: 1, type: 'udhaar', key: 'udhaar1', markerCol: 'C' },
+  { range: 'A52:B71', nameCol: 0, amountCol: 1, type: 'udhaar', key: 'udhaar2', markerCol: 'C' },
   // Wasooli (credit) - customer paid / cleared their khata
-  { range: 'I2:J50', nameCol: 0, amountCol: 1, type: 'wasooli', key: 'wasooli1' },
-  { range: 'M2:N16', nameCol: 0, amountCol: 1, type: 'wasooli', key: 'wasooli2' },
+  { range: 'I2:J50', nameCol: 0, amountCol: 1, type: 'wasooli', key: 'wasooli1', markerCol: 'K' },
+  { range: 'M2:N16', nameCol: 0, amountCol: 1, type: 'wasooli', key: 'wasooli2', markerCol: 'O' },
 ];
 
 const SINGLE_CELLS = {
@@ -49,6 +49,22 @@ function getAuthClient() {
 
 function getSheetsClient(auth) {
   return google.sheets({ version: 'v4', auth });
+}
+
+async function updateSheetMarker(sheetId, tabName, markerCell, text) {
+  if (!sheetId || !tabName || !markerCell) return; // nothing to update (e.g. old pending entries pre-dating this feature)
+  try {
+    const auth = getAuthClient();
+    const sheets = getSheetsClient(auth);
+    await sheets.spreadsheets.values.update({
+      spreadsheetId: sheetId,
+      range: `'${tabName}'!${markerCell}`,
+      valueInputOption: 'RAW',
+      requestBody: { values: [[text]] },
+    });
+  } catch (err) {
+    console.error('Failed to update Sheet marker (non-fatal):', err.message);
+  }
 }
 
 function getDriveClient(auth) {
@@ -212,12 +228,13 @@ router.post('/run', async (req, res) => {
     const markSynced = db.prepare('INSERT OR IGNORE INTO synced_rows (tab_name, row_key) VALUES (?, ?)');
     const insertPending = db.prepare(
       `INSERT INTO pending_sheet_syncs
-       (sheet_name, amount, type, tab_name, suggested_customer_id, suggested_customer_name)
-       VALUES (?, ?, ?, ?, ?, ?)`
+       (sheet_name, amount, type, tab_name, sheet_id, marker_cell, suggested_customer_id, suggested_customer_name)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
     );
 
     let processedCount = 0;
     let pendingCount = 0;
+    const markerUpdates = [];
 
     for (const block of BLOCKS) {
       const result = await sheets.spreadsheets.values.get({
@@ -225,6 +242,7 @@ router.post('/run', async (req, res) => {
         range: `'${tabName}'!${block.range}`,
       });
       const rows = result.data.values || [];
+      const startRow = parseInt(block.range.match(/^[A-Z]+(\d+):/)[1], 10);
 
       for (let i = 0; i < rows.length; i++) {
         const row = rows[i];
@@ -242,24 +260,44 @@ router.post('/run', async (req, res) => {
           (c) => c.name.trim().toLowerCase() === name.toString().trim().toLowerCase()
         );
 
+        const sheetRowNum = startRow + i;
         if (exactMatch) {
           const updated = applyTransaction(exactMatch.id, block.type, amount, 'google_sheet', req.user.id, isoDate);
           notify(exactMatch, block.type, amount, updated.balance);
           processedCount++;
+          markerUpdates.push({
+            range: `'${tabName}'!${block.markerCol}${sheetRowNum}`,
+            values: [['Synced ✅']],
+          });
         } else {
           const suggestion = findBestFuzzyMatch(name, allCustomers);
+          const markerCell = `${block.markerCol}${sheetRowNum}`;
           insertPending.run(
             name,
             amount,
             block.type,
             tabName,
+            sheetId,
+            markerCell,
             suggestion ? suggestion.id : null,
             suggestion ? suggestion.name : null
           );
           pendingCount++;
+          markerUpdates.push({
+            range: `'${tabName}'!${markerCell}`,
+            values: [['Pending Review ⚠️']],
+          });
         }
         markSynced.run(tabName, rowKey);
       }
+    }
+
+    // Write the visible markers back to the Sheet in one batch call
+    if (markerUpdates.length > 0) {
+      await sheets.spreadsheets.values.batchUpdate({
+        spreadsheetId: sheetId,
+        requestBody: { valueInputOption: 'RAW', data: markerUpdates },
+      });
     }
 
     const cellRefs = Object.values(SINGLE_CELLS).map((cell) => `'${tabName}'!${cell}`);
@@ -301,7 +339,7 @@ router.get('/pending-count', (req, res) => {
   res.json({ count });
 });
 
-router.post('/approve', (req, res) => {
+router.post('/approve', async (req, res) => {
   const { pendingId, action, customerId, newCustomerName } = req.body;
   const pending = db.prepare('SELECT * FROM pending_sheet_syncs WHERE id = ?').get(pendingId);
   if (!pending) return res.status(404).json({ error: 'Pending entry not found' });
@@ -309,6 +347,7 @@ router.post('/approve', (req, res) => {
   try {
     if (action === 'reject') {
       db.prepare('DELETE FROM pending_sheet_syncs WHERE id = ?').run(pendingId);
+      await updateSheetMarker(pending.sheet_id, pending.tab_name, pending.marker_cell, 'Rejected ❌');
       return res.json({ message: 'Rejected and removed' });
     }
 
@@ -329,6 +368,7 @@ router.post('/approve', (req, res) => {
     notify(updated, pending.type, pending.amount, updated.balance);
 
     db.prepare('DELETE FROM pending_sheet_syncs WHERE id = ?').run(pendingId);
+    await updateSheetMarker(pending.sheet_id, pending.tab_name, pending.marker_cell, 'Synced ✅');
     res.json({ message: 'Resolved', customerId: targetCustomerId });
   } catch (err) {
     console.error(err);
@@ -336,7 +376,7 @@ router.post('/approve', (req, res) => {
   }
 });
 
-router.post('/bulk-reject', (req, res) => {
+router.post('/bulk-reject', async (req, res) => {
   const { pendingIds } = req.body;
   if (!Array.isArray(pendingIds) || pendingIds.length === 0) {
     return res.status(400).json({ error: 'pendingIds must be a non-empty array' });
@@ -348,6 +388,7 @@ router.post('/bulk-reject', (req, res) => {
       const pending = db.prepare('SELECT * FROM pending_sheet_syncs WHERE id = ?').get(pendingId);
       if (pending) {
         db.prepare('DELETE FROM pending_sheet_syncs WHERE id = ?').run(pendingId);
+        await updateSheetMarker(pending.sheet_id, pending.tab_name, pending.marker_cell, 'Rejected ❌');
         rejectedCount++;
       }
     }
@@ -358,7 +399,7 @@ router.post('/bulk-reject', (req, res) => {
   }
 });
 
-router.post('/bulk-approve-as-create', (req, res) => {
+router.post('/bulk-approve-as-create', async (req, res) => {
   const { pendingIds } = req.body;
   if (!Array.isArray(pendingIds) || pendingIds.length === 0) {
     return res.status(400).json({ error: 'pendingIds must be a non-empty array' });
@@ -385,6 +426,7 @@ router.post('/bulk-approve-as-create', (req, res) => {
       notify(updated, pending.type, pending.amount, updated.balance);
 
       db.prepare('DELETE FROM pending_sheet_syncs WHERE id = ?').run(pendingId);
+      await updateSheetMarker(pending.sheet_id, pending.tab_name, pending.marker_cell, 'Synced ✅');
       approvedCount++;
     }
 
