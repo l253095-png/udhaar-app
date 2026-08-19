@@ -1,726 +1,907 @@
 [
   {
     "name": "Saud Bhai",
-    "amount": 53722.0
+    "amount": 53722,
+    "type": "udhaar"
   },
   {
     "name": "Fayyaz uncle",
-    "amount": 663.0
+    "amount": 663,
+    "type": "udhaar"
   },
   {
     "name": "Irtaza uncle son",
-    "amount": 36571.0
+    "amount": 36571,
+    "type": "udhaar"
   },
   {
     "name": "Sufi jameel",
-    "amount": 47440.0
+    "amount": 47440,
+    "type": "udhaar"
   },
   {
     "name": "Sadia baji",
-    "amount": 54016.0
+    "amount": 54016,
+    "type": "udhaar"
   },
   {
     "name": "Mian akmal",
-    "amount": 27091.0
+    "amount": 27091,
+    "type": "udhaar"
   },
   {
     "name": "Khawaja sb",
-    "amount": 11490.0
+    "amount": 11490,
+    "type": "udhaar"
   },
   {
     "name": "55a",
-    "amount": 9393.0
+    "amount": 9393,
+    "type": "udhaar"
   },
   {
     "name": "162b",
-    "amount": 13651.0
+    "amount": 13651,
+    "type": "udhaar"
   },
   {
     "name": "99b",
-    "amount": 17578.0
+    "amount": 17578,
+    "type": "udhaar"
   },
   {
     "name": "57a",
-    "amount": 201718.0
+    "amount": 201718,
+    "type": "udhaar"
   },
   {
     "name": "Anas bhai",
-    "amount": 15737.0
+    "amount": 15737,
+    "type": "udhaar"
   },
   {
     "name": "Alvi sahab",
-    "amount": 7738.0
+    "amount": 7738,
+    "type": "udhaar"
   },
   {
     "name": "Ali Aziz mart",
-    "amount": 40288.0
+    "amount": 40288,
+    "type": "udhaar"
   },
   {
     "name": "125b Dr salman",
-    "amount": 40.0
+    "amount": 40,
+    "type": "udhaar"
   },
   {
     "name": "Asif sab puehs",
-    "amount": 40624.0
+    "amount": 40624,
+    "type": "udhaar"
   },
   {
     "name": "26a",
-    "amount": 963.0
+    "amount": 963,
+    "type": "udhaar"
   },
   {
     "name": "Malik Munir",
-    "amount": 9436.0
+    "amount": 9436,
+    "type": "udhaar"
+  },
+  {
+    "name": "86b",
+    "amount": 5568,
+    "type": "udhaar"
   },
   {
     "name": "Hussain 75b",
-    "amount": 1.0
+    "amount": 1,
+    "type": "wasooli"
   },
   {
     "name": "103b",
-    "amount": 1560.0
+    "amount": 1560,
+    "type": "udhaar"
   },
   {
-    "name": "333b",
-    "amount": 2359.0
+    "name": "346b Dr zaid",
+    "amount": 2359,
+    "type": "udhaar"
   },
   {
     "name": "Safder butt",
-    "amount": 5658.0
+    "amount": 5658,
+    "type": "udhaar"
   },
   {
     "name": "40a",
-    "amount": 1000.0
+    "amount": 1000,
+    "type": "udhaar"
   },
   {
     "name": "51b amir sahab",
-    "amount": 25538.04
+    "amount": 25538.04,
+    "type": "udhaar"
   },
   {
-    "name": "76a",
-    "amount": 3300.0
+    "name": "Azam uncle",
+    "amount": 3300,
+    "type": "udhaar"
   },
   {
-    "name": "162b neeche shoukat sb",
-    "amount": 340.0
+    "name": "Ashiq maali",
+    "amount": 340,
+    "type": "udhaar"
   },
   {
     "name": "Muhammad Ali papa",
-    "amount": 34739.0
+    "amount": 34739,
+    "type": "udhaar"
   },
   {
     "name": "Hanif 51b driver",
-    "amount": 2287.0
+    "amount": 2287,
+    "type": "udhaar"
   },
   {
     "name": "Excise shop",
-    "amount": 10111.0
-  },
-  {
-    "name": "18a",
-    "amount": 5568.0
+    "amount": 10111,
+    "type": "udhaar"
   },
   {
     "name": "157b",
-    "amount": 16356.0
+    "amount": 16356,
+    "type": "udhaar"
+  },
+  {
+    "name": "Umar",
+    "amount": 18900,
+    "type": "udhaar"
   },
   {
     "name": "Ali asghar 51b",
-    "amount": 18900.0
+    "amount": 14405,
+    "type": "udhaar"
   },
   {
     "name": "51b auranzaib",
-    "amount": 14405.0
-  },
-  {
-    "name": "Dr zahid",
-    "amount": 1180.0
-  },
-  {
-    "name": "233b",
-    "amount": 120.0
-  },
-  {
-    "name": "Dr ijaz",
-    "amount": 36297.0
+    "amount": 1180,
+    "type": "udhaar"
   },
   {
     "name": "79b",
-    "amount": 60.0
+    "amount": 120,
+    "type": "udhaar"
   },
   {
     "name": "322",
-    "amount": 60.0
+    "amount": 36297,
+    "type": "udhaar"
   },
   {
-    "name": "Kamboh sb",
-    "amount": 25.0
+    "name": "118b",
+    "amount": 60,
+    "type": "udhaar"
+  },
+  {
+    "name": "113b",
+    "amount": 60,
+    "type": "udhaar"
   },
   {
     "name": "Taqi butt",
-    "amount": 10.0
+    "amount": 25,
+    "type": "udhaar"
   },
   {
     "name": "Bilal ahsan 90b",
-    "amount": 11334.0
-  },
-  {
-    "name": "Shakeel sunridge",
-    "amount": 50.0
+    "amount": 10,
+    "type": "udhaar"
   },
   {
     "name": "106b",
-    "amount": 11551.0
+    "amount": 11334,
+    "type": "udhaar"
   },
   {
-    "name": "Shahid munir",
-    "amount": 2.0
+    "name": "318b sheez",
+    "amount": 50,
+    "type": "udhaar"
   },
   {
-    "name": "89b",
-    "amount": 6255.0
+    "name": "55b Malik aizaz",
+    "amount": 11551,
+    "type": "udhaar"
   },
   {
-    "name": "Khan",
-    "amount": 1305.0
+    "name": "Qari tayyab",
+    "amount": 6255,
+    "type": "udhaar"
+  },
+  {
+    "name": "Naseer manj",
+    "amount": 1305,
+    "type": "udhaar"
+  },
+  {
+    "name": "179",
+    "amount": 2,
+    "type": "wasooli"
   },
   {
     "name": "Mian usman",
-    "amount": 39037.0
+    "amount": 39037,
+    "type": "udhaar"
   },
   {
-    "name": "b",
-    "amount": 900.0
+    "name": "287b",
+    "amount": 900,
+    "type": "udhaar"
   },
   {
     "name": "Khubaib",
-    "amount": 3723.0
+    "amount": 3723,
+    "type": "udhaar"
   },
   {
-    "name": "kamboh son",
-    "amount": 50.0
+    "name": "240b",
+    "amount": 50,
+    "type": "udhaar"
   },
   {
-    "name": "Hammad Tahir 55a",
-    "amount": 859.0
+    "name": "Puehs office",
+    "amount": 859,
+    "type": "udhaar"
   },
   {
-    "name": "b",
-    "amount": 40.0
+    "name": "154b",
+    "amount": 40,
+    "type": "udhaar"
   },
   {
-    "name": "mali",
-    "amount": 1110.0
+    "name": "Latif mali",
+    "amount": 1110,
+    "type": "udhaar"
   },
   {
-    "name": "b Dr shafiq",
-    "amount": 1564.0
+    "name": "338b Dr shafiq",
+    "amount": 1564,
+    "type": "udhaar"
   },
   {
     "name": "Westwood",
-    "amount": 30786.0
+    "amount": 30786,
+    "type": "udhaar"
+  },
+  {
+    "name": "132b",
+    "amount": 790,
+    "type": "udhaar"
   },
   {
     "name": "Hussain nawaz",
-    "amount": 455.0
+    "amount": 455,
+    "type": "udhaar"
   },
   {
-    "name": "192b Qaium sab",
-    "amount": 3450.0
+    "name": "68a",
+    "amount": 3450,
+    "type": "udhaar"
   },
   {
     "name": "189b",
-    "amount": 1340.0
+    "amount": 1340,
+    "type": "udhaar"
   },
   {
     "name": "200b dsp farooq",
-    "amount": 625.0
+    "amount": 625,
+    "type": "udhaar"
   },
   {
     "name": "Hamza",
-    "amount": 720.0
+    "amount": 720,
+    "type": "udhaar"
   },
   {
     "name": "Dewan",
-    "amount": 670.0
+    "amount": 670,
+    "type": "udhaar"
   },
   {
     "name": "85a",
-    "amount": 135.0
+    "amount": 135,
+    "type": "udhaar"
   },
   {
     "name": "Ghazi bhai",
-    "amount": 185.0
+    "amount": 185,
+    "type": "udhaar"
   },
   {
     "name": "96b excise",
-    "amount": 1000.0
-  },
-  {
-    "name": "30a",
-    "amount": 790.0
+    "amount": 1000,
+    "type": "udhaar"
   },
   {
     "name": "301b",
-    "amount": 14795.0
+    "amount": 14795,
+    "type": "udhaar"
   },
   {
     "name": "58a",
-    "amount": 30.0
+    "amount": 30,
+    "type": "udhaar"
   },
   {
     "name": "Habib maali",
-    "amount": 6083.0
+    "amount": 6083,
+    "type": "udhaar"
   },
   {
     "name": "Ahmad Hassan saeed",
-    "amount": 210.0
+    "amount": 210,
+    "type": "udhaar"
   },
   {
     "name": "30b",
-    "amount": 160.0
+    "amount": 160,
+    "type": "udhaar"
   },
   {
     "name": "Muzammil malik",
-    "amount": 11493.0
+    "amount": 11493,
+    "type": "udhaar"
   },
   {
-    "name": "ainak",
-    "amount": 2185.0
+    "name": "51b mushtaq",
+    "amount": 2185,
+    "type": "udhaar"
   },
   {
-    "name": "mushtaq",
-    "amount": 460.0
+    "name": "Habib",
+    "amount": 460,
+    "type": "udhaar"
   },
   {
-    "name": "Youngs",
-    "amount": 4976.0
+    "name": "Mirza",
+    "amount": 4976,
+    "type": "udhaar"
   },
   {
-    "name": "184b",
-    "amount": 25431.0
+    "name": "23b",
+    "amount": 25431,
+    "type": "udhaar"
   },
   {
-    "name": "mobeen",
-    "amount": 400.0
+    "name": "Yahya mobeen",
+    "amount": 400,
+    "type": "udhaar"
   },
   {
-    "name": "b town flat",
-    "amount": 4865.0
+    "name": "Shabir town flat",
+    "amount": 4865,
+    "type": "udhaar"
   },
   {
-    "name": "Khan 73b",
-    "amount": 615.0
+    "name": "Lays",
+    "amount": 615,
+    "type": "udhaar"
   },
   {
-    "name": "Abdul qadir bike",
-    "amount": 50.0
+    "name": "325b",
+    "amount": 50,
+    "type": "udhaar"
   },
   {
-    "name": "Excise ground floor",
-    "amount": 10.0
+    "name": "55b ground floor",
+    "amount": 10,
+    "type": "udhaar"
   },
   {
-    "name": "51b",
-    "amount": 7573.0
+    "name": "130b",
+    "amount": 7573,
+    "type": "udhaar"
   },
   {
-    "name": "Mirza b owner",
-    "amount": 3.0
+    "name": "226b",
+    "amount": 3,
+    "type": "udhaar"
   },
   {
-    "name": "Awais",
-    "amount": 16022.0
+    "name": "Panjiri",
+    "amount": 16022,
+    "type": "udhaar"
   },
   {
-    "name": "Yahya ibrahim",
-    "amount": 35349.0
+    "name": "Adeel",
+    "amount": 35349,
+    "type": "udhaar"
   },
   {
-    "name": "300b Asadullah 51b",
-    "amount": 1666.0
+    "name": "Asadullah 51b",
+    "amount": 1666,
+    "type": "udhaar"
   },
   {
-    "name": "325 peace home",
-    "amount": 33583.0
+    "name": "Usman peace home",
+    "amount": 33583,
+    "type": "udhaar"
   },
   {
-    "name": "Olpers excise",
-    "amount": 11120.0
+    "name": "183 excise",
+    "amount": 11120,
+    "type": "udhaar"
   },
   {
-    "name": "226 Usman",
-    "amount": 2030.0
+    "name": "142a",
+    "amount": 2030,
+    "type": "udhaar"
   },
   {
-    "name": "398 183",
-    "amount": 8760.0
-  },
-  {
-    "name": "51b Panjiri",
-    "amount": 27380.0
-  },
-  {
-    "name": "178a",
-    "amount": 15331.0
+    "name": "169 excise",
+    "amount": 8760,
+    "type": "udhaar"
   },
   {
     "name": "Aziz store abdur Rehman",
-    "amount": 14072.0
+    "amount": 27380,
+    "type": "udhaar"
   },
   {
-    "name": "51b shafiq",
-    "amount": 1470.0
+    "name": "43b rent",
+    "amount": 15331,
+    "type": "udhaar"
   },
   {
-    "name": "Sabir uncle 347b",
-    "amount": 160.0
+    "name": "88a",
+    "amount": 14072,
+    "type": "udhaar"
+  },
+  {
+    "name": "71b",
+    "amount": 1470,
+    "type": "udhaar"
+  },
+  {
+    "name": "347b",
+    "amount": 160,
+    "type": "udhaar"
   },
   {
     "name": "Ibrahim 23b",
-    "amount": 460.0
+    "amount": 460,
+    "type": "udhaar"
   },
   {
     "name": "Khizer guard",
-    "amount": 2362.0
+    "amount": 2362,
+    "type": "udhaar"
   },
   {
     "name": "184b",
-    "amount": 50.0
+    "amount": 50,
+    "type": "udhaar"
   },
   {
     "name": "Saifullah guard",
-    "amount": 14365.0
+    "amount": 14365,
+    "type": "udhaar"
   },
   {
     "name": "Maryam",
-    "amount": 1180.0
+    "amount": 1180,
+    "type": "udhaar"
   },
   {
     "name": "Afzal warraich",
-    "amount": 2670.0
+    "amount": 2670,
+    "type": "udhaar"
   },
   {
     "name": "54b paracha",
-    "amount": 30.0
+    "amount": 30,
+    "type": "udhaar"
   },
   {
-    "name": "337b",
-    "amount": 4610.0
+    "name": "Yaseen khan",
+    "amount": 4610,
+    "type": "udhaar"
   },
   {
-    "name": "Yaseen khan b",
-    "amount": 2796.0
+    "name": "133b",
+    "amount": 2796,
+    "type": "udhaar"
   },
   {
-    "name": "b",
-    "amount": 13948.0
+    "name": "57b",
+    "amount": 13948,
+    "type": "udhaar"
   },
   {
-    "name": "b",
-    "amount": 1475.0
+    "name": "90b",
+    "amount": 1475,
+    "type": "udhaar"
   },
   {
-    "name": "Moon bhai b rent",
-    "amount": 8810.0
+    "name": "Moon bhai",
+    "amount": 8810,
+    "type": "udhaar"
   },
   {
-    "name": "303b",
-    "amount": 30.0
+    "name": "345b rent",
+    "amount": 30,
+    "type": "udhaar"
   },
   {
-    "name": "b",
-    "amount": 13329.0
+    "name": "Asim 303b",
+    "amount": 13329,
+    "type": "udhaar"
   },
   {
-    "name": "Asmatullah excise",
-    "amount": 20.0
+    "name": "Asmatullah",
+    "amount": 20,
+    "type": "udhaar"
   },
   {
-    "name": "sahib Sohail",
-    "amount": 460.0
+    "name": "60b rent",
+    "amount": 460,
+    "type": "udhaar"
   },
   {
-    "name": "bhai Umair",
-    "amount": 5067.0
+    "name": "Sohail sahib",
+    "amount": 5067,
+    "type": "udhaar"
   },
   {
     "name": "Tahir puehs",
-    "amount": 4430.0
+    "amount": 4430,
+    "type": "udhaar"
   },
   {
     "name": "Azan 341b",
-    "amount": 20.0
+    "amount": 20,
+    "type": "udhaar"
   },
   {
     "name": "326b ibrahim",
-    "amount": 640.0
+    "amount": 640,
+    "type": "udhaar"
   },
   {
     "name": "Mian arsalan",
-    "amount": 6309.0
+    "amount": 6309,
+    "type": "udhaar"
   },
   {
     "name": "307b",
-    "amount": 830.0
+    "amount": 830,
+    "type": "udhaar"
   },
   {
     "name": "Salman 75b",
-    "amount": 3885.0
+    "amount": 3885,
+    "type": "udhaar"
   },
   {
     "name": "67b rent",
-    "amount": 34628.0
+    "amount": 34628,
+    "type": "udhaar"
   },
   {
     "name": "Zumar",
-    "amount": 60.0
+    "amount": 60,
+    "type": "udhaar"
   },
   {
     "name": "Yaseen butt",
-    "amount": 2535.0
+    "amount": 2535,
+    "type": "udhaar"
   },
   {
     "name": "Wafa sb",
-    "amount": 60.0
+    "amount": 60,
+    "type": "udhaar"
   },
   {
-    "name": "940",
-    "amount": 4000.0
+    "name": "94a",
+    "amount": 4000,
+    "type": "udhaar"
   },
   {
     "name": "Arham",
-    "amount": 1010.0
+    "amount": 1010,
+    "type": "udhaar"
   },
   {
-    "name": "Haji Sadiq sb",
-    "amount": 20.0
+    "name": "Ahmad bilal",
+    "amount": 120,
+    "type": "udhaar"
+  },
+  {
+    "name": "Shokat",
+    "amount": 20,
+    "type": "udhaar"
   },
   {
     "name": "Dr Khalid 121a",
-    "amount": 3435.0
+    "amount": 3435,
+    "type": "udhaar"
   },
   {
     "name": "163 excise",
-    "amount": 1516.0
+    "amount": 1516,
+    "type": "udhaar"
   },
   {
     "name": "Raffay",
-    "amount": 200.0
+    "amount": 200,
+    "type": "udhaar"
   },
   {
     "name": "Javed pyara",
-    "amount": 1220.0
+    "amount": 1220,
+    "type": "udhaar"
   },
   {
-    "name": "Major uncle",
-    "amount": 120.0
+    "name": "119b",
+    "amount": 1010,
+    "type": "udhaar"
   },
   {
-    "name": "90b rent",
-    "amount": 1010.0
+    "name": "Shahid a block",
+    "amount": 40,
+    "type": "udhaar"
   },
   {
-    "name": "74a",
-    "amount": 40.0
-  },
-  {
-    "name": "236b",
-    "amount": 270.0
+    "name": "Aleem",
+    "amount": 270,
+    "type": "udhaar"
   },
   {
     "name": "Hifza baji",
-    "amount": 6604.0
+    "amount": 6604,
+    "type": "udhaar"
   },
   {
     "name": "Shabir town kitchen",
-    "amount": 3185.0
+    "amount": 3185,
+    "type": "udhaar"
   },
   {
     "name": "127a",
-    "amount": 140.0
-  },
-  {
-    "name": "237b",
-    "amount": 360.0
+    "amount": 140,
+    "type": "udhaar"
   },
   {
     "name": "144b",
-    "amount": 7115.0
+    "amount": 360,
+    "type": "udhaar"
   },
   {
     "name": "105a",
-    "amount": 1198.0
+    "amount": 7115,
+    "type": "udhaar"
   },
   {
     "name": "Hameed",
-    "amount": 42053.0
+    "amount": 1198,
+    "type": "udhaar"
+  },
+  {
+    "name": "Rafi sb",
+    "amount": 42053,
+    "type": "udhaar"
   },
   {
     "name": "157a",
-    "amount": 960.0
+    "amount": 960,
+    "type": "udhaar"
   },
   {
     "name": "Asad e",
-    "amount": 7870.0
+    "amount": 7870,
+    "type": "udhaar"
+  },
+  {
+    "name": "Sho",
+    "amount": 200,
+    "type": "udhaar"
   },
   {
     "name": "46a",
-    "amount": 200.0
-  },
-  {
-    "name": "114",
-    "amount": 300.0
-  },
-  {
-    "name": "98b Dr khalid",
-    "amount": 10000.0
+    "amount": 300,
+    "type": "udhaar"
   },
   {
     "name": "Mateen bhai",
-    "amount": 30.0
+    "amount": 10000,
+    "type": "udhaar"
   },
   {
-    "name": "71b rent",
-    "amount": 80.0
+    "name": "123b",
+    "amount": 30,
+    "type": "udhaar"
   },
   {
-    "name": "Bhai friend",
-    "amount": 2279.0
+    "name": "Adnan Sahib 193b",
+    "amount": 80,
+    "type": "udhaar"
   },
   {
-    "name": "Nawaz guard b",
-    "amount": 495.0
+    "name": "66b",
+    "amount": 2279,
+    "type": "udhaar"
+  },
+  {
+    "name": "97b",
+    "amount": 495,
+    "type": "udhaar"
   },
   {
     "name": "Hammad tahir",
-    "amount": 70276.0
+    "amount": 70276,
+    "type": "udhaar"
   },
   {
     "name": "Meat shop",
-    "amount": 1320.0
+    "amount": 1320,
+    "type": "udhaar"
   },
   {
     "name": "Maqbool ahmed",
-    "amount": 140.0
+    "amount": 140,
+    "type": "udhaar"
   },
   {
     "name": "Battery",
-    "amount": 4000.0
+    "amount": 4000,
+    "type": "udhaar"
   },
   {
-    "name": "b",
-    "amount": 30.0
+    "name": "339b",
+    "amount": 30,
+    "type": "udhaar"
   },
   {
     "name": "Mazya",
-    "amount": 110.0
+    "amount": 110,
+    "type": "udhaar"
   },
   {
-    "name": "97",
-    "amount": 470.0
+    "name": "Hair salon",
+    "amount": 470,
+    "type": "udhaar"
   },
   {
-    "name": "128b",
-    "amount": 1590.0
+    "name": "Naseer store",
+    "amount": 1590,
+    "type": "udhaar"
   },
   {
-    "name": "Young boy",
-    "amount": 420.0
+    "name": "Egg",
+    "amount": 420,
+    "type": "udhaar"
   },
   {
-    "name": "Judge uncle",
-    "amount": 3160.0
+    "name": "Nazim ali",
+    "amount": 3160,
+    "type": "udhaar"
   },
   {
-    "name": "219b",
-    "amount": 40.0
+    "name": "Cola next",
+    "amount": 40,
+    "type": "udhaar"
+  },
+  {
+    "name": "Cafe",
+    "amount": 1019,
+    "type": "udhaar"
   },
   {
     "name": "331b",
-    "amount": 1019.0
-  },
-  {
-    "name": "107a",
-    "amount": 400.0
-  },
-  {
-    "name": "Ahmad Bhai 78b",
-    "amount": 75.0
+    "amount": 400,
+    "type": "udhaar"
   },
   {
     "name": "66a",
-    "amount": 2150.0
+    "amount": 75,
+    "type": "udhaar"
   },
   {
     "name": "23a",
-    "amount": 20.0
+    "amount": 2150,
+    "type": "udhaar"
   },
   {
     "name": "132a",
-    "amount": 4450.0
+    "amount": 20,
+    "type": "udhaar"
   },
   {
     "name": "Furqan bhai",
-    "amount": 7820.0
+    "amount": 4450,
+    "type": "udhaar"
   },
   {
-    "name": "99a",
-    "amount": 2.0
-  },
-  {
-    "name": "37b",
-    "amount": 50.0
+    "name": "Ajmal",
+    "amount": 7820,
+    "type": "udhaar"
   },
   {
     "name": "206b",
-    "amount": 27916.0
-  },
-  {
-    "name": "125b rent",
-    "amount": 40.0
+    "amount": 50,
+    "type": "udhaar"
   },
   {
     "name": "94b",
-    "amount": 60.0
+    "amount": 27916,
+    "type": "udhaar"
   },
   {
-    "name": "Muhammad",
-    "amount": 328.0
+    "name": "334b",
+    "amount": 40,
+    "type": "udhaar"
+  },
+  {
+    "name": "67a",
+    "amount": 2,
+    "type": "wasooli"
+  },
+  {
+    "name": "35a",
+    "amount": 60,
+    "type": "udhaar"
+  },
+  {
+    "name": "348b",
+    "amount": 328,
+    "type": "udhaar"
+  },
+  {
+    "name": "190b",
+    "amount": 80,
+    "type": "udhaar"
   },
   {
     "name": "116b",
-    "amount": 1360.0
+    "amount": 1360,
+    "type": "udhaar"
   },
   {
     "name": "Alam saeed",
-    "amount": 780.0
+    "amount": 780,
+    "type": "udhaar"
   },
   {
     "name": "Makhdom",
-    "amount": 680.0
+    "amount": 680,
+    "type": "udhaar"
   },
   {
     "name": "Muzammil khan",
-    "amount": 835.0
+    "amount": 835,
+    "type": "udhaar"
   },
   {
     "name": "173b",
-    "amount": 18.0
-  },
-  {
-    "name": "30b",
-    "amount": 80.0
-  },
-  {
-    "name": "Fayyaz 73b rent",
-    "amount": 100.0
-  },
-  {
-    "name": "House 1 a block",
-    "amount": 200.0
+    "amount": 18,
+    "type": "udhaar"
   },
   {
     "name": "30 b",
-    "amount": 230.0
+    "amount": 230,
+    "type": "udhaar"
+  },
+  {
+    "name": "Fayyaz 73b rent",
+    "amount": 100,
+    "type": "udhaar"
+  },
+  {
+    "name": "House 1 a block",
+    "amount": 200,
+    "type": "udhaar"
   }
 ]
