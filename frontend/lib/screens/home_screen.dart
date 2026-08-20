@@ -110,6 +110,15 @@ class _HomeScreenState extends State<HomeScreen> {
       );
       _loadPendingCount();
       _loadStagedCount();
+    } catch (e) {
+      String errorMessage;
+      if (e is SyncException) {
+        errorMessage = e.fullMessage;
+      } else {
+        errorMessage = 'Sync failed: $e';
+      }
+      _showErrorDialog(errorMessage);
+    } finally {
       setState(() => _syncing = false);
     }
   }
