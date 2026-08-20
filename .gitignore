@@ -1,0 +1,15 @@
+node_modules/
+.env
+*.db
+*.db-wal
+*.db-shm
+server.log
+backend/config/service-account-key.json
+.dart_tool/
+build/
+.flutter-plugins
+.flutter-plugins-dependencies
+
+# WhatsApp Web session data (whatsapp-web.js / puppeteer) - never commit this.
+backend/.wwebjs_auth/
+backend/.wwebjs_cache/
