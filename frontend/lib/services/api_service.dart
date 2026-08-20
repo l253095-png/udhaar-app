@@ -251,11 +251,11 @@ class ApiService {
     return jsonDecode(res.body);
   }
 
-  static Future<Map<String, dynamic>> undoSync(String tabName) async {
+  static Future<Map<String, dynamic>> undoSync(String tabName, String password) async {
     final res = await http.post(
       Uri.parse('$baseUrl/api/sheets-sync/undo'),
       headers: await _headers(),
-      body: jsonEncode({'tabName': tabName}),
+      body: jsonEncode({'tabName': tabName, 'password': password}),
     );
     final data = jsonDecode(res.body);
     if (res.statusCode != 200) {

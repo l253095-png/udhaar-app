@@ -529,8 +529,13 @@ router.get('/history', (req, res) => {
 // Reverses every transaction/expense that came from that day's sync, and
 // frees up that tab's rows so a fresh sync run will reprocess them from scratch.
 router.post('/undo', async (req, res) => {
-  const { tabName } = req.body;
+  const { tabName, password } = req.body;
   if (!tabName) return res.status(400).json({ error: 'tabName is required' });
+
+  const requiredPassword = process.env.UNDO_PASSWORD || 'undosheet';
+  if (password !== requiredPassword) {
+    return res.status(403).json({ error: 'Incorrect undo password' });
+  }
 
   try {
     const transactions = db.prepare("SELECT * FROM transactions WHERE sync_tab = ? AND source = 'google_sheet'").all(tabName);

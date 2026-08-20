@@ -33,14 +33,28 @@ class _SyncHistoryScreenState extends State<SyncHistoryScreen> {
   }
 
   Future<void> _undo(String tabName) async {
+    final passwordController = TextEditingController();
+
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (_) => AlertDialog(
         title: Text('Undo Sync for "$tabName"?'),
-        content: const Text(
-          'This will reverse every transaction and expense entry that this sync created — '
-          'customer balances go back to what they were before. The day can then be synced '
-          'fresh from the Sheet again. This cannot be undone.',
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text(
+              'This will reverse every transaction and expense entry that this sync created — '
+              'customer balances go back to what they were before. The day can then be synced '
+              'fresh from the Sheet again. This cannot be undone.',
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: passwordController,
+              obscureText: true,
+              autofocus: true,
+              decoration: const InputDecoration(labelText: 'Undo Password', border: OutlineInputBorder()),
+            ),
+          ],
         ),
         actions: [
           TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
@@ -55,7 +69,7 @@ class _SyncHistoryScreenState extends State<SyncHistoryScreen> {
     if (confirmed != true) return;
 
     try {
-      final result = await ApiService.undoSync(tabName);
+      final result = await ApiService.undoSync(tabName, passwordController.text.trim());
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(result['message'] ?? 'Undo complete')));
       }
