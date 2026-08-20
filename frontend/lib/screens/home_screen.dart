@@ -8,6 +8,7 @@ import '../services/api_service.dart';
 import 'login_screen.dart';
 import 'manage_users_screen.dart';
 import 'sync_history_screen.dart';
+import 'imported_entries_screen.dart';
 
 /// Owner's main landing screen after login — 5 module tiles + pending review badge.
 class HomeScreen extends StatefulWidget {
@@ -19,6 +20,7 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   int _pendingCount = 0;
+  int _stagedCount = 0;
   double _monthlyExpenseTotal = 0.0;
   double _udhaarSystemTotal = 0.0;
   double _mainBranchPurchaseTotal = 0.0;
@@ -30,6 +32,7 @@ class _HomeScreenState extends State<HomeScreen> {
   void initState() {
     super.initState();
     _loadPendingCount();
+    _loadStagedCount();
     _loadMonthlyExpenseTotal();
     _loadUdhaarSystemTotal();
     _loadMainBranchPurchaseTotal();
@@ -38,6 +41,15 @@ class _HomeScreenState extends State<HomeScreen> {
     _clockTimer = Timer.periodic(const Duration(seconds: 1), (_) {
       if (mounted) setState(() => _now = DateTime.now());
     });
+  }
+
+  Future<void> _loadStagedCount() async {
+    try {
+      final count = await ApiService.getStagedCount();
+      if (mounted) setState(() => _stagedCount = count);
+    } catch (_) {
+      // ignore
+    }
   }
 
   @override
@@ -83,28 +95,21 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   /// The ONE sync button for the whole app.
-  /// Exact-match rows import immediately, everything else goes to Pending Approval.
+  /// Nothing touches customer balances directly — every matched row goes
+  /// into the "Imported" list first, awaiting the Owner's final approval.
   Future<void> _syncFromSheet() async {
     setState(() => _syncing = true);
     try {
       final result = await ApiService.runSheetSync();
-      final processed = result['processedCount'] ?? 0;
+      final staged = result['processedCount'] ?? 0;
       final pending = result['pendingCount'] ?? 0;
       _showSnack(
         pending > 0
-            ? '$processed entries imported. $pending need your review below.'
-            : '$processed entries imported.',
+            ? '$staged entries imported (awaiting approval). $pending need name matching below.'
+            : '$staged entries imported — check "Imported Entries" to approve them.',
       );
       _loadPendingCount();
-    } catch (e) {
-      String errorMessage;
-      if (e is SyncException) {
-        errorMessage = e.fullMessage;
-      } else {
-        errorMessage = 'Sync failed: $e';
-      }
-      _showErrorDialog(errorMessage);
-    } finally {
+      _loadStagedCount();
       setState(() => _syncing = false);
     }
   }
@@ -173,6 +178,7 @@ class _HomeScreenState extends State<HomeScreen> {
         onRefresh: () async {
           await Future.wait([
             _loadPendingCount(),
+            _loadStagedCount(),
             _loadMonthlyExpenseTotal(),
             _loadUdhaarSystemTotal(),
             _loadMainBranchPurchaseTotal(),
@@ -203,13 +209,30 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
             ),
             const SizedBox(height: 16),
+            if (_stagedCount > 0)
+              Card(
+                color: Colors.blue.shade50,
+                child: ListTile(
+                  leading: const Icon(Icons.move_to_inbox, color: Colors.blue),
+                  title: Text('$_stagedCount entries imported — awaiting approval'),
+                  subtitle: const Text('Not yet applied to any balance. Tap to review.'),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () async {
+                    await Navigator.of(context).push(
+                      MaterialPageRoute(builder: (_) => const ImportedEntriesScreen()),
+                    );
+                    _loadStagedCount();
+                  },
+                ),
+              ),
+            if (_stagedCount > 0) const SizedBox(height: 12),
             if (_pendingCount > 0)
               Card(
                 color: Colors.amber.shade50,
                 child: ListTile(
                   leading: const Icon(Icons.pending_actions, color: Colors.orange),
-                  title: Text('$_pendingCount entries pending sheet review'),
-                  subtitle: const Text('Tap to review and approve/reject'),
+                  title: Text('$_pendingCount entries need name matching'),
+                  subtitle: const Text('Tap to link/create/reject/ignore'),
                   trailing: const Icon(Icons.chevron_right),
                   onTap: () async {
                     await Navigator.of(context).push(

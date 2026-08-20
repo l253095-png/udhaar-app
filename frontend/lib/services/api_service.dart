@@ -264,6 +264,40 @@ class ApiService {
     return data;
   }
 
+  static Future<List<dynamic>> getStagedEntries() async {
+    final res = await http.get(Uri.parse('$baseUrl/api/sheets-sync/staged'), headers: await _headers());
+    return jsonDecode(res.body);
+  }
+
+  static Future<int> getStagedCount() async {
+    final res = await http.get(Uri.parse('$baseUrl/api/sheets-sync/staged-count'), headers: await _headers());
+    final data = jsonDecode(res.body);
+    return data['count'] ?? 0;
+  }
+
+  static Future<void> approveStagedEntry(int id) async {
+    final res = await http.post(Uri.parse('$baseUrl/api/sheets-sync/staged/$id/approve'), headers: await _headers());
+    if (res.statusCode != 200) {
+      throw Exception(jsonDecode(res.body)['error'] ?? 'Failed to approve entry');
+    }
+  }
+
+  static Future<void> rejectStagedEntry(int id) async {
+    final res = await http.post(Uri.parse('$baseUrl/api/sheets-sync/staged/$id/reject'), headers: await _headers());
+    if (res.statusCode != 200) {
+      throw Exception(jsonDecode(res.body)['error'] ?? 'Failed to reject entry');
+    }
+  }
+
+  static Future<Map<String, dynamic>> bulkApproveStagedEntries() async {
+    final res = await http.post(Uri.parse('$baseUrl/api/sheets-sync/staged/bulk-approve'), headers: await _headers());
+    final data = jsonDecode(res.body);
+    if (res.statusCode != 200) {
+      throw Exception(data['error'] ?? 'Failed to bulk approve');
+    }
+    return data;
+  }
+
   static Future<List<dynamic>> getPendingSyncs() async {
     final res = await http.get(Uri.parse('$baseUrl/api/sheets-sync/pending'), headers: await _headers());
     return jsonDecode(res.body);

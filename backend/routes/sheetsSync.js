@@ -33,8 +33,9 @@ const SINGLE_CELLS = {
 };
 
 // Colors used to mark row status directly on the NAME cell background
-const COLOR_SYNCED = { red: 0.72, green: 0.9, blue: 0.72 };   // light green
-const COLOR_PENDING = { red: 1, green: 0.93, blue: 0.65 };    // light yellow/orange
+const COLOR_SYNCED = { red: 0.72, green: 0.9, blue: 0.72 };   // light green - fully approved, in balance
+const COLOR_STAGED = { red: 0.7, green: 0.85, blue: 0.98 };   // light blue - imported, awaiting Owner's final approval
+const COLOR_PENDING = { red: 1, green: 0.93, blue: 0.65 };    // light yellow/orange - name needs matching
 const COLOR_REJECTED = { red: 1, green: 0.8, blue: 0.8 };     // light red
 const COLOR_IGNORED = { red: 0.85, green: 0.85, blue: 0.85 }; // grey - permanently ignored
 const COLOR_CLEAR = { red: 1, green: 1, blue: 1 };            // white (reset)
@@ -313,10 +314,13 @@ router.post('/run', async (req, res) => {
         const nameCell = `${startCol}${sheetRowNum}`;
 
         if (exactMatch) {
-          const updated = applyTransaction(exactMatch.id, block.type, amount, 'google_sheet', req.user.id, isoDate, tabName);
-          notify(exactMatch, block.type, amount, updated.balance);
+          // Matched a customer, but does NOT touch their balance yet -
+          // it waits in the "Imported" list for the Owner's final approval.
+          db.prepare(
+            'INSERT INTO staged_entries (customer_id, type, amount, tab_name, sheet_id, marker_cell, row_key, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
+          ).run(exactMatch.id, block.type, amount, tabName, sheetId, nameCell, rowKey, req.user.id);
           processedCount++;
-          colorJobs.push({ cell: nameCell, color: COLOR_SYNCED });
+          colorJobs.push({ cell: nameCell, color: COLOR_STAGED });
         } else if (ignoredNames.has(normalizeIgnoredName(name))) {
           // Owner previously marked this exact name (e.g. "43BRENT") as
           // permanently ignored - skip it silently, don't ask again.
@@ -426,13 +430,15 @@ router.post('/approve', async (req, res) => {
       return res.status(400).json({ error: 'action must be link (with customerId), create, reject, or ignore' });
     }
 
-    const isoDate = todayIsoDate();
-    const updated = applyTransaction(targetCustomerId, pending.type, pending.amount, 'google_sheet', req.user.id, isoDate, pending.tab_name);
-    notify(updated, pending.type, pending.amount, updated.balance);
+    // Now matched to a customer, but STILL doesn't touch their balance -
+    // it moves into the "Imported" list for the Owner's final approval.
+    db.prepare(
+      'INSERT INTO staged_entries (customer_id, type, amount, tab_name, sheet_id, marker_cell, row_key, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
+    ).run(targetCustomerId, pending.type, pending.amount, pending.tab_name, pending.sheet_id, pending.marker_cell, pending.row_key, req.user.id);
 
     db.prepare('DELETE FROM pending_sheet_syncs WHERE id = ?').run(pendingId);
-    await colorCell(pending.sheet_id, pending.tab_name, pending.marker_cell, COLOR_SYNCED);
-    res.json({ message: 'Resolved', customerId: targetCustomerId });
+    await colorCell(pending.sheet_id, pending.tab_name, pending.marker_cell, COLOR_STAGED);
+    res.json({ message: 'Moved to Imported Entries — approve it there to apply it', customerId: targetCustomerId });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Failed to resolve entry', details: err.message });
@@ -474,7 +480,6 @@ router.post('/bulk-approve-as-create', async (req, res) => {
   try {
     let approvedCount = 0;
     const createdCustomerIds = [];
-    const isoDate = todayIsoDate();
 
     for (const pendingId of pendingIds) {
       const pending = db.prepare('SELECT * FROM pending_sheet_syncs WHERE id = ?').get(pendingId);
@@ -484,15 +489,17 @@ router.post('/bulk-approve-as-create', async (req, res) => {
       const customerId = info.lastInsertRowid;
       createdCustomerIds.push(customerId);
 
-      const updated = applyTransaction(customerId, pending.type, pending.amount, 'google_sheet', req.user.id, isoDate, pending.tab_name);
-      notify(updated, pending.type, pending.amount, updated.balance);
+      // Stage it - doesn't touch the balance until approved from Imported Entries.
+      db.prepare(
+        'INSERT INTO staged_entries (customer_id, type, amount, tab_name, sheet_id, marker_cell, row_key, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
+      ).run(customerId, pending.type, pending.amount, pending.tab_name, pending.sheet_id, pending.marker_cell, pending.row_key, req.user.id);
 
       db.prepare('DELETE FROM pending_sheet_syncs WHERE id = ?').run(pendingId);
-      await colorCell(pending.sheet_id, pending.tab_name, pending.marker_cell, COLOR_SYNCED);
+      await colorCell(pending.sheet_id, pending.tab_name, pending.marker_cell, COLOR_STAGED);
       approvedCount++;
     }
 
-    res.json({ message: 'Entries approved and customers created', approvedCount, createdCustomerIds });
+    res.json({ message: 'Moved to Imported Entries — approve them there to apply to balances', approvedCount, createdCustomerIds });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Failed to bulk approve', details: err.message });
@@ -524,6 +531,7 @@ router.post('/undo', async (req, res) => {
       }
       db.prepare("DELETE FROM expenses WHERE sync_tab = ? AND source = 'google_sheet'").run(tabName);
       db.prepare('DELETE FROM pending_sheet_syncs WHERE tab_name = ?').run(tabName);
+      db.prepare('DELETE FROM staged_entries WHERE tab_name = ?').run(tabName);
       db.prepare('DELETE FROM synced_rows WHERE tab_name = ?').run(tabName);
       db.prepare('DELETE FROM sync_log WHERE tab_name = ?').run(tabName);
     });
@@ -536,6 +544,89 @@ router.post('/undo', async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Failed to undo sync', details: err.message });
+  }
+});
+
+// ============================================================
+// IMPORTED ENTRIES (staged_entries) — final approval step.
+// Nothing here has touched a customer's balance yet.
+// ============================================================
+
+// GET /api/sheets-sync/staged - list everything awaiting final approval
+router.get('/staged', (req, res) => {
+  const rows = db
+    .prepare(
+      `SELECT se.*, c.name as customer_name, c.phone as customer_phone
+       FROM staged_entries se
+       JOIN customers c ON c.id = se.customer_id
+       ORDER BY se.created_at DESC`
+    )
+    .all();
+  res.json(rows);
+});
+
+// GET /api/sheets-sync/staged-count
+router.get('/staged-count', (req, res) => {
+  const { count } = db.prepare('SELECT COUNT(*) as count FROM staged_entries').get();
+  res.json({ count });
+});
+
+// POST /api/sheets-sync/staged/:id/approve - THE final step: applies to balance + sends WhatsApp
+router.post('/staged/:id/approve', async (req, res) => {
+  const staged = db.prepare('SELECT * FROM staged_entries WHERE id = ?').get(req.params.id);
+  if (!staged) return res.status(404).json({ error: 'Entry not found' });
+
+  try {
+    const isoDate = todayIsoDate();
+    const updated = applyTransaction(staged.customer_id, staged.type, staged.amount, 'google_sheet', req.user.id, isoDate, staged.tab_name);
+    notify(updated, staged.type, staged.amount, updated.balance);
+
+    db.prepare('DELETE FROM staged_entries WHERE id = ?').run(staged.id);
+    await colorCell(staged.sheet_id, staged.tab_name, staged.marker_cell, COLOR_SYNCED);
+    res.json({ message: 'Approved and applied to balance', customerId: staged.customer_id, newBalance: updated.balance });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to approve entry', details: err.message });
+  }
+});
+
+// POST /api/sheets-sync/staged/:id/reject - discard it, don't apply, row gets reconsidered next sync
+router.post('/staged/:id/reject', async (req, res) => {
+  const staged = db.prepare('SELECT * FROM staged_entries WHERE id = ?').get(req.params.id);
+  if (!staged) return res.status(404).json({ error: 'Entry not found' });
+
+  try {
+    db.prepare('DELETE FROM staged_entries WHERE id = ?').run(staged.id);
+    if (staged.row_key) {
+      db.prepare('DELETE FROM synced_rows WHERE tab_name = ? AND row_key = ?').run(staged.tab_name, staged.row_key);
+    }
+    await colorCell(staged.sheet_id, staged.tab_name, staged.marker_cell, COLOR_CLEAR);
+    res.json({ message: 'Rejected — will be reconsidered on the next sync' });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to reject entry', details: err.message });
+  }
+});
+
+// POST /api/sheets-sync/staged/bulk-approve - approve everything in the Imported list at once
+router.post('/staged/bulk-approve', async (req, res) => {
+  try {
+    const allStaged = db.prepare('SELECT * FROM staged_entries').all();
+    const isoDate = todayIsoDate();
+    let approvedCount = 0;
+
+    for (const staged of allStaged) {
+      const updated = applyTransaction(staged.customer_id, staged.type, staged.amount, 'google_sheet', req.user.id, isoDate, staged.tab_name);
+      notify(updated, staged.type, staged.amount, updated.balance);
+      db.prepare('DELETE FROM staged_entries WHERE id = ?').run(staged.id);
+      await colorCell(staged.sheet_id, staged.tab_name, staged.marker_cell, COLOR_SYNCED);
+      approvedCount++;
+    }
+
+    res.json({ message: `${approvedCount} entries approved and applied`, approvedCount });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to bulk approve', details: err.message });
   }
 });
 

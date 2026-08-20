@@ -104,6 +104,25 @@ db.exec(`
     created_by INTEGER,
     created_at TEXT DEFAULT (datetime('now', 'localtime'))
   );
+
+  -- Every entry that comes from a Sheet sync (whether it matched a customer
+  -- exactly, or was resolved from the Pending Approval list) lands HERE
+  -- first, NOT directly in the customer's balance. It only becomes a real
+  -- transaction once the Owner reviews and approves it from this list.
+  CREATE TABLE IF NOT EXISTS staged_entries (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    customer_id INTEGER NOT NULL,
+    type TEXT NOT NULL CHECK(type IN ('udhaar', 'wasooli')),
+    amount REAL NOT NULL,
+    note TEXT,
+    tab_name TEXT,
+    sheet_id TEXT,
+    marker_cell TEXT,
+    row_key TEXT,
+    created_by INTEGER,
+    created_at TEXT DEFAULT (datetime('now', 'localtime')),
+    FOREIGN KEY (customer_id) REFERENCES customers(id)
+  );
 `);
 
 // ---- Lightweight migrations for existing databases (safe to run repeatedly) ----
