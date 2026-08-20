@@ -93,19 +93,35 @@ db.exec(`
     created_at TEXT DEFAULT (datetime('now', 'localtime')),
     UNIQUE(tab_name, row_key)
   );
+
+  -- Names the Owner has decided to permanently ignore (e.g. "43BRENT" turning
+  -- out to be a location/rent code, not a real customer) so they stop being
+  -- re-flagged for review every time they reappear in a future day's sheet.
+  CREATE TABLE IF NOT EXISTS ignored_sheet_names (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    normalized_name TEXT UNIQUE NOT NULL,
+    original_name TEXT NOT NULL,
+    created_by INTEGER,
+    created_at TEXT DEFAULT (datetime('now', 'localtime'))
+  );
 `);
 
 // ---- Lightweight migrations for existing databases (safe to run repeatedly) ----
+// CREATE TABLE IF NOT EXISTS only helps brand-new databases - existing local
+// databases (like ones with real customer data already in them) need their
+// missing columns added without losing any data.
 function addColumnIfMissing(table, column, definition) {
-  try {
+  const existingColumns = db.prepare(`PRAGMA table_info(${table})`).all().map((c) => c.name);
+  if (!existingColumns.includes(column)) {
     db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`);
-  } catch (e) {
-    // Column already exists - ignore
   }
 }
 addColumnIfMissing('transactions', 'sync_tab', 'TEXT');
 addColumnIfMissing('expenses', 'sync_tab', 'TEXT');
 addColumnIfMissing('sync_log', 'tab_name', 'TEXT');
 addColumnIfMissing('pending_sheet_syncs', 'row_key', 'TEXT');
+addColumnIfMissing('pending_sheet_syncs', 'sheet_id', 'TEXT');
+addColumnIfMissing('pending_sheet_syncs', 'marker_cell', 'TEXT');
+addColumnIfMissing('pending_sheet_syncs', 'tab_name', 'TEXT');
 
 module.exports = db;

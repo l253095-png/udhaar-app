@@ -246,6 +246,24 @@ class ApiService {
     return data;
   }
 
+  static Future<List<dynamic>> getSyncHistory() async {
+    final res = await http.get(Uri.parse('$baseUrl/api/sheets-sync/history'), headers: await _headers());
+    return jsonDecode(res.body);
+  }
+
+  static Future<Map<String, dynamic>> undoSync(String tabName) async {
+    final res = await http.post(
+      Uri.parse('$baseUrl/api/sheets-sync/undo'),
+      headers: await _headers(),
+      body: jsonEncode({'tabName': tabName}),
+    );
+    final data = jsonDecode(res.body);
+    if (res.statusCode != 200) {
+      throw Exception(data['error'] ?? 'Failed to undo sync');
+    }
+    return data;
+  }
+
   static Future<List<dynamic>> getPendingSyncs() async {
     final res = await http.get(Uri.parse('$baseUrl/api/sheets-sync/pending'), headers: await _headers());
     return jsonDecode(res.body);

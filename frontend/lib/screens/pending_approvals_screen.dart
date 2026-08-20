@@ -140,7 +140,10 @@ class _PendingApprovalsScreenState extends State<PendingApprovalsScreen> {
       context: context,
       builder: (_) => AlertDialog(
         title: const Text('Reject Entry?'),
-        content: const Text('This sheet row will be ignored — no customer or transaction will be created.'),
+        content: const Text(
+          'This sheet row will be ignored — no customer or transaction will be created. '
+          'If this name appears again in a future sheet, it will be flagged for review again.',
+        ),
         actions: [
           TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
           ElevatedButton(
@@ -154,6 +157,41 @@ class _PendingApprovalsScreenState extends State<PendingApprovalsScreen> {
     if (confirmed == true) {
       try {
         await ApiService.resolvePendingSync(item['id'], 'reject');
+        _load();
+      } catch (e) {
+        if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed: $e')));
+      }
+    }
+  }
+
+  Future<void> _ignorePermanently(Map<String, dynamic> item) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('Ignore This Name Permanently?'),
+        content: Text(
+          '"${item['sheet_name']}" will be skipped automatically every time it appears in the sheet '
+          'from now on (useful for entries like "43BRENT" that turn out to be a rent/location code, '
+          'not a real customer). You will not be asked about it again.',
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.grey.shade700),
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Ignore Permanently'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed == true) {
+      try {
+        await ApiService.resolvePendingSync(item['id'], 'ignore');
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('"${item['sheet_name']}" will be auto-skipped from now on')),
+          );
+        }
         _load();
       } catch (e) {
         if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed: $e')));
@@ -273,6 +311,12 @@ class _PendingApprovalsScreenState extends State<PendingApprovalsScreen> {
                                       onPressed: () => _reject(item),
                                       child: const Text('Reject'),
                                     ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  IconButton(
+                                    tooltip: 'Ignore this name permanently (skip it every time it appears)',
+                                    icon: Icon(Icons.block, color: Colors.grey.shade700),
+                                    onPressed: () => _ignorePermanently(item),
                                   ),
                                 ],
                               ),

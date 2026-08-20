@@ -36,7 +36,12 @@ const SINGLE_CELLS = {
 const COLOR_SYNCED = { red: 0.72, green: 0.9, blue: 0.72 };   // light green
 const COLOR_PENDING = { red: 1, green: 0.93, blue: 0.65 };    // light yellow/orange
 const COLOR_REJECTED = { red: 1, green: 0.8, blue: 0.8 };     // light red
+const COLOR_IGNORED = { red: 0.85, green: 0.85, blue: 0.85 }; // grey - permanently ignored
 const COLOR_CLEAR = { red: 1, green: 1, blue: 1 };            // white (reset)
+
+function normalizeIgnoredName(name) {
+  return (name || '').trim().toLowerCase();
+}
 
 function getAuthClient() {
   const keyPath =
@@ -212,6 +217,19 @@ function findBestFuzzyMatch(sheetName, allCustomers) {
 }
 
 function applyTransaction(customerId, type, amount, source, userId, isoDate, syncTab) {
+  // Safety net: if an identical transaction for this customer/type/amount/source
+  // already exists today, skip re-inserting it (defense in depth alongside the
+  // synced_rows tracking, in case sync is ever re-run in an unusual way).
+  const existing = db
+    .prepare(
+      "SELECT * FROM transactions WHERE customer_id = ? AND type = ? AND amount = ? AND source = ? AND date(created_at) = date(?)"
+    )
+    .get(customerId, type, amount, source, isoDate || new Date().toISOString().slice(0, 10));
+  if (existing) {
+    console.log(`[Sheets Sync] Skipping duplicate transaction for customer ${customerId}: ${type} Rs${amount}`);
+    return db.prepare('SELECT * FROM customers WHERE id = ?').get(customerId);
+  }
+
   const balanceChange = type === 'udhaar' ? amount : -amount;
   db.prepare(
     'INSERT INTO transactions (customer_id, type, amount, source, sync_tab, created_by) VALUES (?, ?, ?, ?, ?, ?)'
@@ -260,7 +278,11 @@ router.post('/run', async (req, res) => {
 
     let processedCount = 0;
     let pendingCount = 0;
+    let ignoredCount = 0;
     const colorJobs = [];
+    const ignoredNames = new Set(
+      db.prepare('SELECT normalized_name FROM ignored_sheet_names').all().map((r) => r.normalized_name)
+    );
 
     for (const block of BLOCKS) {
       const result = await sheets.spreadsheets.values.get({
@@ -295,6 +317,11 @@ router.post('/run', async (req, res) => {
           notify(exactMatch, block.type, amount, updated.balance);
           processedCount++;
           colorJobs.push({ cell: nameCell, color: COLOR_SYNCED });
+        } else if (ignoredNames.has(normalizeIgnoredName(name))) {
+          // Owner previously marked this exact name (e.g. "43BRENT") as
+          // permanently ignored - skip it silently, don't ask again.
+          ignoredCount++;
+          colorJobs.push({ cell: nameCell, color: COLOR_IGNORED });
         } else {
           // Fuzzy match (handles spacing/case differences like "43b rent" vs "43BRENT",
           // and partial-name matches like "Irtaza Shahid" vs "Irtaza Uncle")
@@ -338,7 +365,7 @@ router.post('/run', async (req, res) => {
     db.prepare('INSERT INTO sync_log (tab_name, rows_synced, new_customers_flagged, synced_by) VALUES (?, ?, ?, ?)')
       .run(tabName, processedCount, pendingCount, req.user.id);
 
-    res.json({ success: true, processedCount, pendingCount, tabName });
+    res.json({ success: true, processedCount, pendingCount, ignoredCount, tabName });
   } catch (err) {
     console.error('[Sheets Sync Error]', err);
     res.status(500).json({ success: false, error: err.message });
@@ -376,6 +403,19 @@ router.post('/approve', async (req, res) => {
       return res.json({ message: 'Rejected — will be reconsidered on the next sync' });
     }
 
+    if (action === 'ignore') {
+      // Permanently ignore this exact name (e.g. "43BRENT" turns out to be a
+      // rent/location code, not a real customer) so it's never flagged again,
+      // in any future day's sheet.
+      const normalized = normalizeIgnoredName(pending.sheet_name);
+      db.prepare(
+        'INSERT OR IGNORE INTO ignored_sheet_names (normalized_name, original_name, created_by) VALUES (?, ?, ?)'
+      ).run(normalized, pending.sheet_name, req.user.id);
+      db.prepare('DELETE FROM pending_sheet_syncs WHERE id = ?').run(pendingId);
+      await colorCell(pending.sheet_id, pending.tab_name, pending.marker_cell, COLOR_IGNORED);
+      return res.json({ message: `"${pending.sheet_name}" will be auto-skipped in every future sync` });
+    }
+
     let targetCustomerId = customerId;
     if (action === 'create') {
       const info = db
@@ -383,7 +423,7 @@ router.post('/approve', async (req, res) => {
         .run(newCustomerName || pending.sheet_name, pending.phone || null);
       targetCustomerId = info.lastInsertRowid;
     } else if (action !== 'link' || !targetCustomerId) {
-      return res.status(400).json({ error: 'action must be link (with customerId), create, or reject' });
+      return res.status(400).json({ error: 'action must be link (with customerId), create, reject, or ignore' });
     }
 
     const isoDate = todayIsoDate();

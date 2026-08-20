@@ -7,6 +7,7 @@ import 'pending_approvals_screen.dart';
 import '../services/api_service.dart';
 import 'login_screen.dart';
 import 'manage_users_screen.dart';
+import 'sync_history_screen.dart';
 
 /// Owner's main landing screen after login — 5 module tiles + pending review badge.
 class HomeScreen extends StatefulWidget {
@@ -136,6 +137,13 @@ class _HomeScreenState extends State<HomeScreen> {
       appBar: AppBar(
         title: const Text('Shop Dashboard'),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.history),
+            tooltip: 'Sync History / Undo',
+            onPressed: () {
+              Navigator.of(context).push(MaterialPageRoute(builder: (_) => const SyncHistoryScreen()));
+            },
+          ),
           IconButton(
             icon: const Icon(Icons.manage_accounts),
             tooltip: 'Manage Users',
