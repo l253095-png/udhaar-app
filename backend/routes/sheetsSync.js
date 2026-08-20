@@ -84,15 +84,15 @@ function cellToGridCoords(cell) {
  * to visually show sync status directly in the Sheet, instead of text.
  * Fails silently (logs only) so it never breaks the main sync/approval flow.
  */
-async function colorCell(sheetId, tabName, cell, color) {
-  if (!sheetId || !tabName || !cell || !color) return;
+async function colorCell(sheetId, cell, color) {
+  if (!sheetId || !cell || !color) return;
   try {
     const auth = getAuthClient();
     const sheets = getSheetsClient(auth);
     const meta = await sheets.spreadsheets.get({ spreadsheetId: sheetId, fields: 'sheets(properties(sheetId,title))' });
-    const sheetMeta = (meta.data.sheets || []).find((s) => s.properties.title === tabName);
-    if (!sheetMeta) return;
-    const gridSheetId = sheetMeta.properties.sheetId;
+    const sheetList = meta.data.sheets || [];
+    if (sheetList.length === 0) return;
+    const gridSheetId = sheetList[0].properties.sheetId; // each day's file has exactly one tab
 
     const coords = cellToGridCoords(cell);
     if (!coords) return;
@@ -141,7 +141,7 @@ async function getFirstSheetName(sheetId) {
   }
 }
 
-async function getLatestSheetIdFromFolder() {
+async function getLatestSheetFile() {
   const folderId = process.env.GOOGLE_DRIVE_FOLDER_ID;
   if (!folderId) {
     throw { error: 'Google Drive folder ID is not configured.', errorCode: 'MISSING_FOLDER_ID', details: 'GOOGLE_DRIVE_FOLDER_ID is not set in .env' };
@@ -161,7 +161,10 @@ async function getLatestSheetIdFromFolder() {
       throw { error: 'No Google Sheets found in the configured folder.', errorCode: 'NO_SHEETS_FOUND', details: `Folder ID: ${folderId}` };
     }
     console.log(`[Sheets Sync] Using latest sheet: "${files[0].name}" (ID: ${files[0].id})`);
-    return files[0].id;
+    // fileName (e.g. "20.8.26") is the real day-identifier - every day's file
+    // has its own internal tab still called "Sheet1", so the tab name alone
+    // can't tell two different days apart.
+    return { fileId: files[0].id, fileName: files[0].name };
   } catch (err) {
     if (err.errorCode) throw err;
     throw { error: 'Failed to fetch the latest Google Sheet from your Drive folder.', errorCode: 'DRIVE_API_ERROR', details: err.message || 'Unknown error' };
@@ -262,8 +265,12 @@ router.post('/run', async (req, res) => {
   try {
     const auth = getAuthClient();
     const sheets = getSheetsClient(auth);
-    const sheetId = await getLatestSheetIdFromFolder();
-    const tabName = await getFirstSheetName(sheetId);
+    const { fileId: sheetId, fileName: tabName } = await getLatestSheetFile();
+    // The Sheet inside every day's file is always called "Sheet1" internally -
+    // it does NOT identify which day this is. `tabName` (the day's FILE name,
+    // e.g. "20.8.26") is what we use everywhere for tracking; `sheetTabTitle`
+    // is only used to build the A1 range references below.
+    const sheetTabTitle = await getFirstSheetName(sheetId);
     const isoDate = todayIsoDate();
 
     const allCustomers = db.prepare('SELECT * FROM customers').all();
@@ -288,7 +295,7 @@ router.post('/run', async (req, res) => {
     for (const block of BLOCKS) {
       const result = await sheets.spreadsheets.values.get({
         spreadsheetId: sheetId,
-        range: `'${tabName}'!${block.range}`,
+        range: `'${sheetTabTitle}'!${block.range}`,
       });
       const rows = result.data.values || [];
       const startRow = parseInt(block.range.match(/^[A-Z]+(\d+):/)[1], 10);
@@ -350,10 +357,10 @@ router.post('/run', async (req, res) => {
 
     // Color all processed row name-cells (green=synced, yellow=pending review)
     for (const job of colorJobs) {
-      await colorCell(sheetId, tabName, job.cell, job.color);
+      await colorCell(sheetId, job.cell, job.color);
     }
 
-    const cellRefs = Object.values(SINGLE_CELLS).map((cell) => `'${tabName}'!${cell}`);
+    const cellRefs = Object.values(SINGLE_CELLS).map((cell) => `'${sheetTabTitle}'!${cell}`);
     const batchResult = await sheets.spreadsheets.values.batchGet({ spreadsheetId: sheetId, ranges: cellRefs });
     const categories = Object.keys(SINGLE_CELLS);
     categories.forEach((category, idx) => {
@@ -372,7 +379,12 @@ router.post('/run', async (req, res) => {
     res.json({ success: true, processedCount, pendingCount, ignoredCount, tabName });
   } catch (err) {
     console.error('[Sheets Sync Error]', err);
-    res.status(500).json({ success: false, error: err.message });
+    res.status(500).json({
+      success: false,
+      error: err.error || err.message || 'Sync failed',
+      errorCode: err.errorCode,
+      details: err.details,
+    });
   }
 });
 
@@ -403,7 +415,7 @@ router.post('/approve', async (req, res) => {
       if (pending.row_key) {
         db.prepare('DELETE FROM synced_rows WHERE tab_name = ? AND row_key = ?').run(pending.tab_name, pending.row_key);
       }
-      await colorCell(pending.sheet_id, pending.tab_name, pending.marker_cell, COLOR_CLEAR);
+      await colorCell(pending.sheet_id, pending.marker_cell, COLOR_CLEAR);
       return res.json({ message: 'Rejected — will be reconsidered on the next sync' });
     }
 
@@ -416,7 +428,7 @@ router.post('/approve', async (req, res) => {
         'INSERT OR IGNORE INTO ignored_sheet_names (normalized_name, original_name, created_by) VALUES (?, ?, ?)'
       ).run(normalized, pending.sheet_name, req.user.id);
       db.prepare('DELETE FROM pending_sheet_syncs WHERE id = ?').run(pendingId);
-      await colorCell(pending.sheet_id, pending.tab_name, pending.marker_cell, COLOR_IGNORED);
+      await colorCell(pending.sheet_id, pending.marker_cell, COLOR_IGNORED);
       return res.json({ message: `"${pending.sheet_name}" will be auto-skipped in every future sync` });
     }
 
@@ -437,7 +449,7 @@ router.post('/approve', async (req, res) => {
     ).run(targetCustomerId, pending.type, pending.amount, pending.tab_name, pending.sheet_id, pending.marker_cell, pending.row_key, req.user.id);
 
     db.prepare('DELETE FROM pending_sheet_syncs WHERE id = ?').run(pendingId);
-    await colorCell(pending.sheet_id, pending.tab_name, pending.marker_cell, COLOR_STAGED);
+    await colorCell(pending.sheet_id, pending.marker_cell, COLOR_STAGED);
     res.json({ message: 'Moved to Imported Entries — approve it there to apply it', customerId: targetCustomerId });
   } catch (err) {
     console.error(err);
@@ -460,7 +472,7 @@ router.post('/bulk-reject', async (req, res) => {
         if (pending.row_key) {
           db.prepare('DELETE FROM synced_rows WHERE tab_name = ? AND row_key = ?').run(pending.tab_name, pending.row_key);
         }
-        await colorCell(pending.sheet_id, pending.tab_name, pending.marker_cell, COLOR_CLEAR);
+        await colorCell(pending.sheet_id, pending.marker_cell, COLOR_CLEAR);
         rejectedCount++;
       }
     }
@@ -495,7 +507,7 @@ router.post('/bulk-approve-as-create', async (req, res) => {
       ).run(customerId, pending.type, pending.amount, pending.tab_name, pending.sheet_id, pending.marker_cell, pending.row_key, req.user.id);
 
       db.prepare('DELETE FROM pending_sheet_syncs WHERE id = ?').run(pendingId);
-      await colorCell(pending.sheet_id, pending.tab_name, pending.marker_cell, COLOR_STAGED);
+      await colorCell(pending.sheet_id, pending.marker_cell, COLOR_STAGED);
       approvedCount++;
     }
 
@@ -582,7 +594,7 @@ router.post('/staged/:id/approve', async (req, res) => {
     notify(updated, staged.type, staged.amount, updated.balance);
 
     db.prepare('DELETE FROM staged_entries WHERE id = ?').run(staged.id);
-    await colorCell(staged.sheet_id, staged.tab_name, staged.marker_cell, COLOR_SYNCED);
+    await colorCell(staged.sheet_id, staged.marker_cell, COLOR_SYNCED);
     res.json({ message: 'Approved and applied to balance', customerId: staged.customer_id, newBalance: updated.balance });
   } catch (err) {
     console.error(err);
@@ -600,7 +612,7 @@ router.post('/staged/:id/reject', async (req, res) => {
     if (staged.row_key) {
       db.prepare('DELETE FROM synced_rows WHERE tab_name = ? AND row_key = ?').run(staged.tab_name, staged.row_key);
     }
-    await colorCell(staged.sheet_id, staged.tab_name, staged.marker_cell, COLOR_CLEAR);
+    await colorCell(staged.sheet_id, staged.marker_cell, COLOR_CLEAR);
     res.json({ message: 'Rejected — will be reconsidered on the next sync' });
   } catch (err) {
     console.error(err);
@@ -619,7 +631,7 @@ router.post('/staged/bulk-approve', async (req, res) => {
       const updated = applyTransaction(staged.customer_id, staged.type, staged.amount, 'google_sheet', req.user.id, isoDate, staged.tab_name);
       notify(updated, staged.type, staged.amount, updated.balance);
       db.prepare('DELETE FROM staged_entries WHERE id = ?').run(staged.id);
-      await colorCell(staged.sheet_id, staged.tab_name, staged.marker_cell, COLOR_SYNCED);
+      await colorCell(staged.sheet_id, staged.marker_cell, COLOR_SYNCED);
       approvedCount++;
     }
 
