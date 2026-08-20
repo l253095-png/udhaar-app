@@ -124,4 +124,44 @@ addColumnIfMissing('pending_sheet_syncs', 'sheet_id', 'TEXT');
 addColumnIfMissing('pending_sheet_syncs', 'marker_cell', 'TEXT');
 addColumnIfMissing('pending_sheet_syncs', 'tab_name', 'TEXT');
 
+// ---- Fix ignored_sheet_names if it already existed with an older/different
+// schema (e.g. just "name" instead of "normalized_name"/"original_name").
+// CREATE TABLE IF NOT EXISTS silently does nothing when a table already
+// exists under that name, even with the wrong columns - so we detect and
+// repair that case here, preserving any existing ignored names.
+(function fixIgnoredSheetNamesSchema() {
+  const tableExists = db
+    .prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name='ignored_sheet_names'")
+    .get();
+  if (!tableExists) return;
+
+  const columns = db.prepare('PRAGMA table_info(ignored_sheet_names)').all().map((c) => c.name);
+  if (columns.includes('normalized_name')) return; // already correct schema
+
+  console.log('[DB Migration] Rebuilding ignored_sheet_names with the correct schema...');
+  db.exec('ALTER TABLE ignored_sheet_names RENAME TO ignored_sheet_names_old');
+  db.exec(`
+    CREATE TABLE ignored_sheet_names (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      normalized_name TEXT UNIQUE NOT NULL,
+      original_name TEXT NOT NULL,
+      created_by INTEGER,
+      created_at TEXT DEFAULT (datetime('now', 'localtime'))
+    );
+  `);
+
+  // Carry over any names that were already saved under the old schema
+  if (columns.includes('name')) {
+    const oldRows = db.prepare('SELECT * FROM ignored_sheet_names_old').all();
+    const insert = db.prepare(
+      'INSERT OR IGNORE INTO ignored_sheet_names (normalized_name, original_name) VALUES (?, ?)'
+    );
+    for (const row of oldRows) {
+      const normalized = (row.name || '').trim().toLowerCase();
+      if (normalized) insert.run(normalized, row.name);
+    }
+  }
+  db.exec('DROP TABLE ignored_sheet_names_old');
+})();
+
 module.exports = db;
