@@ -263,6 +263,19 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
       }
     }).toList();
 
+    // Running balance per entry — "what the balance was right after this
+    // transaction happened". rawTxns comes newest-first from the backend,
+    // so we start from the CURRENT balance and walk backward, undoing each
+    // transaction's effect to get the balance as it stood before it.
+    final Map<dynamic, double> balanceAfterMap = {};
+    double _runningBalance = balance;
+    for (final t in rawTxns) {
+      balanceAfterMap[t['id']] = _runningBalance;
+      final amt = ((t['amount'] as num?) ?? 0).toDouble();
+      final effect = t['type'] == 'udhaar' ? amt : -amt;
+      _runningBalance -= effect;
+    }
+
     return Scaffold(
       appBar: AppBar(
         title: Text(_customer!['name'] ?? 'Customer Detail'),
@@ -404,6 +417,7 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
                 } catch (_) {}
 
                 final description = t['note']?.toString() ?? 'No description';
+                final balanceAfter = balanceAfterMap[t['id']];
 
                 return Card(
                   margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
@@ -429,6 +443,11 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
                           Text(
                             'Date: $dateStr | Time: $timeStr',
                             style: const TextStyle(fontSize: 12, color: Colors.grey),
+                          ),
+                        if (balanceAfter != null)
+                          Text(
+                            'Balance after: Rs ${balanceAfter.toStringAsFixed(0)}',
+                            style: const TextStyle(fontSize: 12, color: Colors.blueGrey, fontWeight: FontWeight.w600),
                           ),
                       ],
                     ),
