@@ -33,6 +33,7 @@ db.exec(`
     amount REAL NOT NULL,
     note TEXT,
     source TEXT DEFAULT 'app',
+    sync_tab TEXT,
     created_by INTEGER,
     created_at TEXT DEFAULT (datetime('now', 'localtime')),
     FOREIGN KEY (customer_id) REFERENCES customers(id),
@@ -41,6 +42,7 @@ db.exec(`
 
   CREATE TABLE IF NOT EXISTS sync_log (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
+    tab_name TEXT,
     rows_synced INTEGER DEFAULT 0,
     new_customers_flagged INTEGER DEFAULT 0,
     synced_by INTEGER,
@@ -56,6 +58,7 @@ db.exec(`
     note TEXT,
     entry_date TEXT DEFAULT (date('now', 'localtime')),
     source TEXT DEFAULT 'app',
+    sync_tab TEXT,
     created_by INTEGER,
     created_at TEXT DEFAULT (datetime('now', 'localtime')),
     FOREIGN KEY (created_by) REFERENCES users(id)
@@ -73,6 +76,7 @@ db.exec(`
     tab_name TEXT,
     sheet_id TEXT,
     marker_cell TEXT,
+    row_key TEXT,
     suggested_customer_id INTEGER,
     suggested_customer_name TEXT,
     created_at TEXT DEFAULT (datetime('now', 'localtime')),
@@ -90,5 +94,18 @@ db.exec(`
     UNIQUE(tab_name, row_key)
   );
 `);
+
+// ---- Lightweight migrations for existing databases (safe to run repeatedly) ----
+function addColumnIfMissing(table, column, definition) {
+  try {
+    db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`);
+  } catch (e) {
+    // Column already exists - ignore
+  }
+}
+addColumnIfMissing('transactions', 'sync_tab', 'TEXT');
+addColumnIfMissing('expenses', 'sync_tab', 'TEXT');
+addColumnIfMissing('sync_log', 'tab_name', 'TEXT');
+addColumnIfMissing('pending_sheet_syncs', 'row_key', 'TEXT');
 
 module.exports = db;
