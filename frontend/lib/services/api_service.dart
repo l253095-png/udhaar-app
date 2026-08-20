@@ -251,6 +251,25 @@ class ApiService {
     return jsonDecode(res.body);
   }
 
+  static Future<int> getLegacyCount() async {
+    final res = await http.get(Uri.parse('$baseUrl/api/sheets-sync/legacy-count'), headers: await _headers());
+    final data = jsonDecode(res.body);
+    return data['count'] ?? 0;
+  }
+
+  static Future<Map<String, dynamic>> undoLegacy(String password) async {
+    final res = await http.post(
+      Uri.parse('$baseUrl/api/sheets-sync/undo-legacy'),
+      headers: await _headers(),
+      body: jsonEncode({'password': password}),
+    );
+    final data = jsonDecode(res.body);
+    if (res.statusCode != 200) {
+      throw Exception(data['error'] ?? 'Failed to undo legacy entries');
+    }
+    return data;
+  }
+
   static Future<Map<String, dynamic>> undoSync(String tabName, String password) async {
     final res = await http.post(
       Uri.parse('$baseUrl/api/sheets-sync/undo'),

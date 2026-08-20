@@ -524,6 +524,58 @@ router.get('/history', (req, res) => {
   res.json(rows);
 });
 
+// GET /api/sheets-sync/legacy-count - counts pre-fix sync entries that have
+// no day-tag (sync_tab IS NULL), so the normal per-day Undo can't reach them.
+router.get('/legacy-count', (req, res) => {
+  const { count } = db
+    .prepare("SELECT COUNT(*) as count FROM transactions WHERE source = 'google_sheet' AND sync_tab IS NULL")
+    .get();
+  res.json({ count });
+});
+
+// POST /api/sheets-sync/undo-legacy
+// Body: { password }
+// One-time cleanup: reverses ALL Sheet-sync transactions/expenses that predate
+// the day-tracking fix (they have no tab_name, so the normal Undo can't find them).
+router.post('/undo-legacy', async (req, res) => {
+  const { password } = req.body;
+  const requiredPassword = process.env.UNDO_PASSWORD || 'undosheet';
+  if (password !== requiredPassword) {
+    return res.status(403).json({ error: 'Incorrect undo password' });
+  }
+
+  try {
+    const transactions = db
+      .prepare("SELECT * FROM transactions WHERE source = 'google_sheet' AND sync_tab IS NULL")
+      .all();
+
+    const undoAll = db.transaction(() => {
+      for (const txn of transactions) {
+        const balanceChange = txn.type === 'udhaar' ? -txn.amount : txn.amount;
+        db.prepare('UPDATE customers SET balance = balance + ? WHERE id = ?').run(balanceChange, txn.customer_id);
+        db.prepare('DELETE FROM transactions WHERE id = ?').run(txn.id);
+      }
+      db.prepare("DELETE FROM expenses WHERE source = 'google_sheet' AND sync_tab IS NULL").run();
+      db.prepare('DELETE FROM staged_entries WHERE tab_name IS NULL').run();
+      db.prepare('DELETE FROM pending_sheet_syncs WHERE tab_name IS NULL').run();
+      // Old (pre-fix) rows were tracked under the literal tab name "Sheet1"
+      // (the internal tab, not a real day) - clear only those, not any
+      // correctly-tagged rows from a real day that may already exist.
+      db.prepare("DELETE FROM synced_rows WHERE tab_name = 'Sheet1' OR tab_name IS NULL").run();
+      db.prepare('DELETE FROM sync_log WHERE tab_name IS NULL').run();
+    });
+    undoAll();
+
+    res.json({
+      message: `Legacy cleanup complete. ${transactions.length} old (pre-fix) transactions reversed. All Sheet rows will be reconsidered on your next sync.`,
+      reversedCount: transactions.length,
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to undo legacy entries', details: err.message });
+  }
+});
+
 // POST /api/sheets-sync/undo
 // Body: { tabName }
 // Reverses every transaction/expense that came from that day's sync, and
