@@ -1,17 +1,16 @@
 const express = require('express');
-const db = require('../config/db');
+const { db } = require('../config/db');
 const { authenticate, ownerOnly } = require('../middleware/auth');
 
 const router = express.Router();
 router.use(authenticate);
 
-// WhatsApp is optional — if the package isn't installed yet (npm install not run
-// with the new dependency) or WhatsApp isn't linked, this quietly does nothing.
+// WhatsApp is optional — if the package isn't installed yet or WhatsApp isn't linked, this quietly does nothing.
 let sendWhatsAppMessage = async () => {};
 try {
   sendWhatsAppMessage = require('../services/whatsapp').sendWhatsAppMessage;
 } catch (e) {
-  console.log('WhatsApp module not active yet (run `npm install` to enable it).');
+  console.log('WhatsApp module not active yet.');
 }
 
 function notifyCustomer(customer, type, amount, newBalance) {
@@ -25,115 +24,160 @@ function notifyCustomer(customer, type, amount, newBalance) {
 }
 
 // GET /api/transactions - Owner and Worker can view all transactions
-// Optional query params: ?type=udhaar|wasooli  &period=today|month
-router.get('/', (req, res) => {
-  const { type, period } = req.query;
+router.get('/', async (req, res) => {
+  try {
+    const { type, period } = req.query;
 
-  let query = `SELECT t.*, c.name as customer_name, c.phone as customer_phone
-               FROM transactions t
-               JOIN customers c ON c.id = t.customer_id
-               WHERE 1=1`;
-  const params = [];
+    let query = `SELECT t.*, c.name as customer_name, c.phone as customer_phone
+                 FROM transactions t
+                 JOIN customers c ON c.id = t.customer_id
+                 WHERE 1=1`;
+    const params = [];
 
-  if (type === 'udhaar' || type === 'wasooli') {
-    query += ' AND t.type = ?';
-    params.push(type);
+    if (type === 'udhaar' || type === 'wasooli') {
+      query += ' AND t.type = ?';
+      params.push(type);
+    }
+
+    if (period === 'today') {
+      query += " AND date(t.created_at) = date('now', 'localtime')";
+    } else if (period === 'month') {
+      query += " AND strftime('%Y-%m', t.created_at) = strftime('%Y-%m', 'now', 'localtime')";
+    }
+
+    query += ' ORDER BY t.created_at DESC LIMIT 500';
+
+    const result = await db.execute({ sql: query, args: params });
+    const transactions = result.rows;
+
+    const total = transactions.reduce((sum, t) => sum + t.amount, 0);
+    res.json({ transactions, total, count: transactions.length });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Server error fetching transactions' });
   }
-
-  if (period === 'today') {
-    query += " AND date(t.created_at) = date('now', 'localtime')";
-  } else if (period === 'month') {
-    query += " AND strftime('%Y-%m', t.created_at) = strftime('%Y-%m', 'now', 'localtime')";
-  }
-
-  query += ' ORDER BY t.created_at DESC LIMIT 500';
-
-  const transactions = db.prepare(query).all(...params);
-
-  const total = transactions.reduce((sum, t) => sum + t.amount, 0);
-  res.json({ transactions, total, count: transactions.length });
 });
 
 // POST /api/transactions - Owner only
-router.post('/', ownerOnly, (req, res) => {
-  const { customer_id, type, amount, note } = req.body;
-  if (!customer_id || !type || !amount) {
-    return res.status(400).json({ error: 'customer_id, type, and amount are required' });
+router.post('/', ownerOnly, async (req, res) => {
+  try {
+    const { customer_id, type, amount, note } = req.body;
+    if (!customer_id || !type || !amount) {
+      return res.status(400).json({ error: 'customer_id, type, and amount are required' });
+    }
+    if (!['udhaar', 'wasooli'].includes(type)) {
+      return res.status(400).json({ error: 'type must be udhaar or wasooli' });
+    }
+
+    const custResult = await db.execute({
+      sql: 'SELECT * FROM customers WHERE id = ?',
+      args: [customer_id]
+    });
+    const customer = custResult.rows[0];
+    if (!customer) return res.status(404).json({ error: 'Customer not found' });
+
+    const balanceChange = type === 'udhaar' ? amount : -amount;
+
+    // Execute using Turso transaction batch
+    const batchResult = await db.batch([
+      {
+        sql: 'INSERT INTO transactions (customer_id, type, amount, note, source, created_by) VALUES (?, ?, ?, ?, ?, ?)',
+        args: [customer_id, type, amount, note || null, 'app', req.user.id]
+      },
+      {
+        sql: 'UPDATE customers SET balance = balance + ? WHERE id = ?',
+        args: [balanceChange, customer_id]
+      }
+    ]);
+
+    const insertResult = batchResult[0];
+    const id = Number(insertResult.lastInsertRowid);
+
+    const updatedCustResult = await db.execute({
+      sql: 'SELECT * FROM customers WHERE id = ?',
+      args: [customer_id]
+    });
+    const updatedCustomer = updatedCustResult.rows[0];
+    
+    notifyCustomer(customer, type, amount, updatedCustomer.balance);
+
+    res.status(201).json({ id, message: 'Transaction recorded' });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Server error creating transaction' });
   }
-  if (!['udhaar', 'wasooli'].includes(type)) {
-    return res.status(400).json({ error: 'type must be udhaar or wasooli' });
-  }
-
-  const customer = db.prepare('SELECT * FROM customers WHERE id = ?').get(customer_id);
-  if (!customer) return res.status(404).json({ error: 'Customer not found' });
-
-  const balanceChange = type === 'udhaar' ? amount : -amount;
-
-  const insertTxn = db.prepare(
-    'INSERT INTO transactions (customer_id, type, amount, note, source, created_by) VALUES (?, ?, ?, ?, ?, ?)'
-  );
-  const updateBalance = db.prepare('UPDATE customers SET balance = balance + ? WHERE id = ?');
-
-  const runTransaction = db.transaction(() => {
-    const info = insertTxn.run(customer_id, type, amount, note || null, 'app', req.user.id);
-    updateBalance.run(balanceChange, customer_id);
-    return info.lastInsertRowid;
-  });
-
-  const id = runTransaction();
-  const updatedCustomer = db.prepare('SELECT * FROM customers WHERE id = ?').get(customer_id);
-  notifyCustomer(customer, type, amount, updatedCustomer.balance);
-
-  res.status(201).json({ id, message: 'Transaction recorded' });
 });
 
-// PUT /api/transactions/:id - Owner only (edit an existing entry)
-router.put('/:id', ownerOnly, (req, res) => {
-  const { type, amount, note } = req.body;
-  const txn = db.prepare('SELECT * FROM transactions WHERE id = ?').get(req.params.id);
-  if (!txn) return res.status(404).json({ error: 'Transaction not found' });
+// PUT /api/transactions/:id - Owner only
+router.put('/:id', ownerOnly, async (req, res) => {
+  try {
+    const { type, amount, note } = req.body;
+    const txnResult = await db.execute({
+      sql: 'SELECT * FROM transactions WHERE id = ?',
+      args: [req.params.id]
+    });
+    const txn = txnResult.rows[0];
+    if (!txn) return res.status(404).json({ error: 'Transaction not found' });
 
-  const newType = type || txn.type;
-  const newAmount = amount !== undefined ? amount : txn.amount;
-  if (!['udhaar', 'wasooli'].includes(newType)) {
-    return res.status(400).json({ error: 'type must be udhaar or wasooli' });
+    const newType = type || txn.type;
+    const newAmount = amount !== undefined ? amount : txn.amount;
+    if (!['udhaar', 'wasooli'].includes(newType)) {
+      return res.status(400).json({ error: 'type must be udhaar or wasooli' });
+    }
+
+    const oldEffect = txn.type === 'udhaar' ? -txn.amount : txn.amount; // undo old
+    const newEffect = newType === 'udhaar' ? newAmount : -newAmount; // apply new
+
+    await db.batch([
+      {
+        sql: 'UPDATE customers SET balance = balance + ? WHERE id = ?',
+        args: [oldEffect, txn.customer_id]
+      },
+      {
+        sql: 'UPDATE transactions SET type = ?, amount = ?, note = ? WHERE id = ?',
+        args: [newType, newAmount, note ?? txn.note, req.params.id]
+      },
+      {
+        sql: 'UPDATE customers SET balance = balance + ? WHERE id = ?',
+        args: [newEffect, txn.customer_id]
+      }
+    ]);
+
+    res.json({ message: 'Transaction updated' });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Server error updating transaction' });
   }
-
-  const oldEffect = txn.type === 'udhaar' ? -txn.amount : txn.amount; // undo old
-  const newEffect = newType === 'udhaar' ? newAmount : -newAmount; // apply new
-
-  const runUpdate = db.transaction(() => {
-    db.prepare('UPDATE customers SET balance = balance + ? WHERE id = ?').run(oldEffect, txn.customer_id);
-    db.prepare('UPDATE transactions SET type = ?, amount = ?, note = ? WHERE id = ?').run(
-      newType,
-      newAmount,
-      note ?? txn.note,
-      req.params.id
-    );
-    db.prepare('UPDATE customers SET balance = balance + ? WHERE id = ?').run(newEffect, txn.customer_id);
-  });
-  runUpdate();
-
-  res.json({ message: 'Transaction updated' });
 });
 
 // DELETE /api/transactions/:id - Owner only
-router.delete('/:id', ownerOnly, (req, res) => {
-  const txn = db.prepare('SELECT * FROM transactions WHERE id = ?').get(req.params.id);
-  if (!txn) return res.status(404).json({ error: 'Transaction not found' });
+router.delete('/:id', ownerOnly, async (req, res) => {
+  try {
+    const txnResult = await db.execute({
+      sql: 'SELECT * FROM transactions WHERE id = ?',
+      args: [req.params.id]
+    });
+    const txn = txnResult.rows[0];
+    if (!txn) return res.status(404).json({ error: 'Transaction not found' });
 
-  const balanceChange = txn.type === 'udhaar' ? -txn.amount : txn.amount;
+    const balanceChange = txn.type === 'udhaar' ? -txn.amount : txn.amount;
 
-  const runDelete = db.transaction(() => {
-    db.prepare('DELETE FROM transactions WHERE id = ?').run(req.params.id);
-    db.prepare('UPDATE customers SET balance = balance + ? WHERE id = ?').run(
-      balanceChange,
-      txn.customer_id
-    );
-  });
-  runDelete();
+    await db.batch([
+      {
+        sql: 'DELETE FROM transactions WHERE id = ?',
+        args: [req.params.id]
+      },
+      {
+        sql: 'UPDATE customers SET balance = balance + ? WHERE id = ?',
+        args: [balanceChange, txn.customer_id]
+      }
+    ]);
 
-  res.json({ message: 'Transaction deleted and balance adjusted' });
+    res.json({ message: 'Transaction deleted and balance adjusted' });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Server error deleting transaction' });
+  }
 });
 
 module.exports = router;

@@ -1,5 +1,5 @@
 const express = require('express');
-const db = require('../config/db');
+const { db } = require('../config/db');
 const { authenticate, ownerOnly } = require('../middleware/auth');
 
 const router = express.Router();
@@ -7,76 +7,127 @@ router.use(authenticate); // all customer routes require login
 
 // GET /api/customers/stats/total-balance
 // Returns total outstanding balance across all customers
-router.get('/stats/total-balance', (req, res) => {
-  const result = db.prepare('SELECT SUM(balance) as totalBalance FROM customers').get();
-  res.json({ totalBalance: result.totalBalance || 0 });
+router.get('/stats/total-balance', async (req, res) => {
+  try {
+    const result = await db.execute('SELECT SUM(balance) as totalBalance FROM customers');
+    const totalBalance = result.rows[0]?.totalBalance || 0;
+    res.json({ totalBalance });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Server error fetching total balance' });
+  }
 });
 
 // GET /api/customers - Owner and Worker can view. Optional ?search=name-or-phone
-router.get('/', (req, res) => {
-  const { search } = req.query;
-  let customers;
-  if (search && search.trim()) {
-    const term = `%${search.trim()}%`;
-    customers = db
-      .prepare('SELECT * FROM customers WHERE name LIKE ? OR phone LIKE ? ORDER BY name')
-      .all(term, term);
-  } else {
-    customers = db.prepare('SELECT * FROM customers ORDER BY name').all();
+router.get('/', async (req, res) => {
+  try {
+    const { search } = req.query;
+    let result;
+    if (search && search.trim()) {
+      const term = `%${search.trim()}%`;
+      result = await db.execute({
+        sql: 'SELECT * FROM customers WHERE name LIKE ? OR phone LIKE ? ORDER BY name',
+        args: [term, term]
+      });
+    } else {
+      result = await db.execute('SELECT * FROM customers ORDER BY name');
+    }
+    res.json(result.rows);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Server error fetching customers' });
   }
-  res.json(customers);
 });
 
 // GET /api/customers/:id - single customer with transaction history
-router.get('/:id', (req, res) => {
-  const customer = db.prepare('SELECT * FROM customers WHERE id = ?').get(req.params.id);
-  if (!customer) return res.status(404).json({ error: 'Customer not found' });
+router.get('/:id', async (req, res) => {
+  try {
+    const custResult = await db.execute({
+      sql: 'SELECT * FROM customers WHERE id = ?',
+      args: [req.params.id]
+    });
+    const customer = custResult.rows[0];
+    if (!customer) return res.status(404).json({ error: 'Customer not found' });
 
-  const transactions = db
-    .prepare('SELECT * FROM transactions WHERE customer_id = ? ORDER BY created_at DESC')
-    .all(req.params.id);
+    const txResult = await db.execute({
+      sql: 'SELECT * FROM transactions WHERE customer_id = ? ORDER BY created_at DESC',
+      args: [req.params.id]
+    });
 
-  res.json({ ...customer, transactions });
+    res.json({ ...customer, transactions: txResult.rows });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Server error fetching customer details' });
+  }
 });
 
 // POST /api/customers - Owner only. Only Name + Phone required.
-router.post('/', ownerOnly, (req, res) => {
-  const { name, phone } = req.body;
-  if (!name || !phone) {
-    return res.status(400).json({ error: 'Customer name and phone number are required' });
+router.post('/', ownerOnly, async (req, res) => {
+  try {
+    const { name, phone } = req.body;
+    if (!name || !phone) {
+      return res.status(400).json({ error: 'Customer name and phone number are required' });
+    }
+
+    const info = await db.execute({
+      sql: 'INSERT INTO customers (name, phone) VALUES (?, ?)',
+      args: [name, phone]
+    });
+
+    res.status(201).json({ id: Number(info.lastInsertRowid), name, phone, balance: 0 });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Server error creating customer' });
   }
-
-  const info = db
-    .prepare('INSERT INTO customers (name, phone) VALUES (?, ?)')
-    .run(name, phone);
-
-  res.status(201).json({ id: info.lastInsertRowid, name, phone, balance: 0 });
 });
 
 // PUT /api/customers/:id - Owner only
-router.put('/:id', ownerOnly, (req, res) => {
-  const { name, phone } = req.body;
-  const existing = db.prepare('SELECT * FROM customers WHERE id = ?').get(req.params.id);
-  if (!existing) return res.status(404).json({ error: 'Customer not found' });
+router.put('/:id', ownerOnly, async (req, res) => {
+  try {
+    const { name, phone } = req.body;
+    const existResult = await db.execute({
+      sql: 'SELECT * FROM customers WHERE id = ?',
+      args: [req.params.id]
+    });
+    const existing = existResult.rows[0];
+    if (!existing) return res.status(404).json({ error: 'Customer not found' });
 
-  db.prepare('UPDATE customers SET name = ?, phone = ? WHERE id = ?').run(
-    name || existing.name,
-    phone || existing.phone,
-    req.params.id
-  );
+    await db.execute({
+      sql: 'UPDATE customers SET name = ?, phone = ? WHERE id = ?',
+      args: [name || existing.name, phone || existing.phone, req.params.id]
+    });
 
-  res.json({ message: 'Customer updated' });
+    res.json({ message: 'Customer updated' });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Server error updating customer' });
+  }
 });
 
 // DELETE /api/customers/:id - Owner only
-router.delete('/:id', ownerOnly, (req, res) => {
-  const existing = db.prepare('SELECT * FROM customers WHERE id = ?').get(req.params.id);
-  if (!existing) return res.status(404).json({ error: 'Customer not found' });
+router.delete('/:id', ownerOnly, async (req, res) => {
+  try {
+    const existResult = await db.execute({
+      sql: 'SELECT * FROM customers WHERE id = ?',
+      args: [req.params.id]
+    });
+    const existing = existResult.rows[0];
+    if (!existing) return res.status(404).json({ error: 'Customer not found' });
 
-  db.prepare('DELETE FROM transactions WHERE customer_id = ?').run(req.params.id);
-  db.prepare('DELETE FROM customers WHERE id = ?').run(req.params.id);
+    await db.execute({
+      sql: 'DELETE FROM transactions WHERE customer_id = ?',
+      args: [req.params.id]
+    });
+    await db.execute({
+      sql: 'DELETE FROM customers WHERE id = ?',
+      args: [req.params.id]
+    });
 
-  res.json({ message: 'Customer deleted' });
+    res.json({ message: 'Customer deleted' });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Server error deleting customer' });
+  }
 });
 
 module.exports = router;
