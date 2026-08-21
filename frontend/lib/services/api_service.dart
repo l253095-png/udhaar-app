@@ -1,6 +1,6 @@
 import 'dart:convert';
 import 'dart:io' show Platform;
-import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter/foundation.dart' show kIsWeb, kDebugMode;
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -21,17 +21,16 @@ class SyncException implements Exception {
 /// Central place for talking to the backend.
 ///
 /// This automatically picks the right address per platform:
-/// - Windows desktop app: talks to localhost, because it always runs
-///   on the SAME machine as the backend (laptop today, Shop PC later).
-/// - Android / Web: talks to the public tunnel URL, because it runs on
-///   a separate device that reaches the backend over the internet.
-///
-/// Update PUBLIC_TUNNEL_URL below whenever the tunnel address changes.
+/// - Windows desktop app / Web local testing: talks to localhost
+/// - Production release: talks to Render URL
 class ApiService {
   static const String _renderUrl = 'https://udhaar-app.onrender.com';
   static const String _localUrl = 'http://localhost:3000';
 
   static String get baseUrl {
+    if (kDebugMode) {
+      return _localUrl;
+    }
     if (!kIsWeb && Platform.isWindows) {
       return _localUrl;
     }

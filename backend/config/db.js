@@ -1,4 +1,11 @@
 require('dotenv').config(); // Make sure env vars are loaded
+const dns = require('dns');
+
+// Fix for Windows / Node.js 18+ DNS lookup bug (prevents getaddrinfo ENOTFOUND)
+if (dns.setDefaultResultOrder) {
+  dns.setDefaultResultOrder('ipv4first');
+}
+
 const { createClient } = require('@libsql/client');
 
 // Initialize the Turso client

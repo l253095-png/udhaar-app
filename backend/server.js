@@ -1,4 +1,13 @@
 require('dotenv').config();
+const dns = require('dns');
+if (dns.setDefaultResultOrder) {
+  dns.setDefaultResultOrder('ipv4first');
+}
+
+console.log('--- ENV CHECK ---');
+console.log('Folder ID Loaded:', process.env.GOOGLE_DRIVE_FOLDER_ID ? 'YES (' + process.env.GOOGLE_DRIVE_FOLDER_ID.slice(0, 6) + '...)' : 'NO / UNDEFINED');
+console.log('-----------------');
+
 const express = require('express');
 const cors = require('cors');
 const bcrypt = require('bcryptjs');
