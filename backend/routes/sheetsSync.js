@@ -1,7 +1,8 @@
 const express = require('express');
 const { google } = require('googleapis');
 const path = require('path');
-const db = require('../config/db');
+const { db } = require('../config/db');
+const { nowLocal, todayLocal } = require('../config/timeHelper');
 const { authenticate, ownerOnly } = require('../middleware/auth');
 
 const router = express.Router();
@@ -220,44 +221,50 @@ function findBestFuzzyMatch(sheetName, allCustomers) {
   return bestScore > 0 ? { customer: best, confidence: 'low' } : null;
 }
 
-function applyTransaction(customerId, type, amount, source, userId, isoDate, syncTab) {
+async function applyTransaction(customerId, type, amount, source, userId, isoDate, syncTab) {
   // Safety net: if an identical transaction for this customer/type/amount/source
   // already exists today, skip re-inserting it (defense in depth alongside the
   // synced_rows tracking, in case sync is ever re-run in an unusual way).
-  const existing = db
-    .prepare(
-      "SELECT * FROM transactions WHERE customer_id = ? AND type = ? AND amount = ? AND source = ? AND date(created_at) = date(?)"
-    )
-    .get(customerId, type, amount, source, isoDate || new Date().toISOString().slice(0, 10));
-  if (existing) {
+  const dupe = await db.execute({
+    sql: "SELECT * FROM transactions WHERE customer_id = ? AND type = ? AND amount = ? AND source = ? AND date(created_at) = date(?)",
+    args: [customerId, type, amount, source, isoDate || todayLocal()],
+  });
+  if (dupe.rows[0]) {
     console.log(`[Sheets Sync] Skipping duplicate transaction for customer ${customerId}: ${type} Rs${amount}`);
-    return db.prepare('SELECT * FROM customers WHERE id = ?').get(customerId);
+    const cur = await db.execute({ sql: 'SELECT * FROM customers WHERE id = ?', args: [customerId] });
+    return cur.rows[0];
   }
 
   const balanceChange = type === 'udhaar' ? amount : -amount;
-  db.prepare(
-    'INSERT INTO transactions (customer_id, type, amount, source, sync_tab, created_by) VALUES (?, ?, ?, ?, ?, ?)'
-  ).run(customerId, type, amount, source, syncTab || null, userId);
-  db.prepare('UPDATE customers SET balance = balance + ? WHERE id = ?').run(balanceChange, customerId);
-  return db.prepare('SELECT * FROM customers WHERE id = ?').get(customerId);
+  await db.execute({
+    sql: 'INSERT INTO transactions (customer_id, type, amount, source, sync_tab, created_by, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)',
+    args: [customerId, type, amount, source, syncTab || null, userId, nowLocal()],
+  });
+  await db.execute({
+    sql: 'UPDATE customers SET balance = balance + ? WHERE id = ?',
+    args: [balanceChange, customerId],
+  });
+  const updated = await db.execute({ sql: 'SELECT * FROM customers WHERE id = ?', args: [customerId] });
+  return updated.rows[0];
 }
 
-function upsertDailyExpense(category, isoDate, amount, userId, syncTab) {
-  const existing = db
-    .prepare("SELECT * FROM expenses WHERE category = ? AND entry_date = ? AND source = 'google_sheet'")
-    .get(category, isoDate);
+async function upsertDailyExpense(category, isoDate, amount, userId, syncTab) {
+  const found = await db.execute({
+    sql: "SELECT * FROM expenses WHERE category = ? AND entry_date = ? AND source = 'google_sheet'",
+    args: [category, isoDate],
+  });
+  const existing = found.rows[0];
   if (existing) {
-    db.prepare('UPDATE expenses SET amount = ?, sync_tab = ? WHERE id = ?').run(amount, syncTab || null, existing.id);
+    await db.execute({
+      sql: 'UPDATE expenses SET amount = ?, sync_tab = ? WHERE id = ?',
+      args: [amount, syncTab || null, existing.id],
+    });
   } else {
-    db.prepare(
-      'INSERT INTO expenses (category, amount, entry_date, source, sync_tab, created_by) VALUES (?, ?, ?, ?, ?, ?)'
-    ).run(category, amount, isoDate, 'google_sheet', syncTab || null, userId);
+    await db.execute({
+      sql: 'INSERT INTO expenses (category, amount, entry_date, source, sync_tab, created_by, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)',
+      args: [category, amount, isoDate, 'google_sheet', syncTab || null, userId, nowLocal()],
+    });
   }
-}
-
-function todayIsoDate() {
-  const today = new Date();
-  return `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
 }
 
 // POST /api/sheets-sync/run
@@ -271,26 +278,27 @@ router.post('/run', async (req, res) => {
     // e.g. "20.8.26") is what we use everywhere for tracking; `sheetTabTitle`
     // is only used to build the A1 range references below.
     const sheetTabTitle = await getFirstSheetName(sheetId);
-    const isoDate = todayIsoDate();
+    const isoDate = todayLocal();
 
-    const allCustomers = db.prepare('SELECT * FROM customers').all();
+    const allCustomers = (await db.execute('SELECT * FROM customers')).rows;
 
-    const alreadySynced = (rowKey) =>
-      !!db.prepare('SELECT 1 FROM synced_rows WHERE tab_name = ? AND row_key = ?').get(tabName, rowKey);
-    const markSynced = db.prepare('INSERT OR IGNORE INTO synced_rows (tab_name, row_key) VALUES (?, ?)');
-    const insertPending = db.prepare(
-      `INSERT INTO pending_sheet_syncs
-       (sheet_name, amount, type, tab_name, sheet_id, marker_cell, row_key, suggested_customer_id, suggested_customer_name)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
+    // Pre-load this tab's already-synced row keys once, so the per-row check
+    // stays a fast in-memory lookup instead of a network round-trip each time.
+    const syncedKeys = new Set(
+      (await db.execute({
+        sql: 'SELECT row_key FROM synced_rows WHERE tab_name = ?',
+        args: [tabName],
+      })).rows.map((r) => r.row_key)
+    );
+
+    const ignoredNames = new Set(
+      (await db.execute('SELECT normalized_name FROM ignored_sheet_names')).rows.map((r) => r.normalized_name)
     );
 
     let processedCount = 0;
     let pendingCount = 0;
     let ignoredCount = 0;
     const colorJobs = [];
-    const ignoredNames = new Set(
-      db.prepare('SELECT normalized_name FROM ignored_sheet_names').all().map((r) => r.normalized_name)
-    );
 
     for (const block of BLOCKS) {
       const result = await sheets.spreadsheets.values.get({
@@ -308,7 +316,7 @@ router.post('/run', async (req, res) => {
         if (!name || !amountRaw) continue;
 
         const rowKey = `${block.key}_${i}`;
-        if (alreadySynced(rowKey)) continue;
+        if (syncedKeys.has(rowKey)) continue;
 
         const amount = parseFloat(amountRaw);
         if (isNaN(amount) || amount <= 0) continue;
@@ -323,9 +331,10 @@ router.post('/run', async (req, res) => {
         if (exactMatch) {
           // Matched a customer, but does NOT touch their balance yet -
           // it waits in the "Imported" list for the Owner's final approval.
-          db.prepare(
-            'INSERT INTO staged_entries (customer_id, type, amount, tab_name, sheet_id, marker_cell, row_key, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
-          ).run(exactMatch.id, block.type, amount, tabName, sheetId, nameCell, rowKey, req.user.id);
+          await db.execute({
+            sql: 'INSERT INTO staged_entries (customer_id, type, amount, tab_name, sheet_id, marker_cell, row_key, created_by, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+            args: [exactMatch.id, block.type, amount, tabName, sheetId, nameCell, rowKey, req.user.id, nowLocal()],
+          });
           processedCount++;
           colorJobs.push({ cell: nameCell, color: COLOR_STAGED });
         } else if (ignoredNames.has(normalizeIgnoredName(name))) {
@@ -337,25 +346,36 @@ router.post('/run', async (req, res) => {
           // Fuzzy match (handles spacing/case differences like "43b rent" vs "43BRENT",
           // and partial-name matches like "Irtaza Shahid" vs "Irtaza Uncle")
           const match = findBestFuzzyMatch(name, allCustomers);
-          insertPending.run(
-            name,
-            amount,
-            block.type,
-            tabName,
-            sheetId,
-            nameCell,
-            rowKey,
-            match ? match.customer.id : null,
-            match ? match.customer.name : null
-          );
+          await db.execute({
+            sql: `INSERT INTO pending_sheet_syncs
+                  (sheet_name, amount, type, tab_name, sheet_id, marker_cell, row_key, suggested_customer_id, suggested_customer_name, created_at)
+                  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            args: [
+              name,
+              amount,
+              block.type,
+              tabName,
+              sheetId,
+              nameCell,
+              rowKey,
+              match ? match.customer.id : null,
+              match ? match.customer.name : null,
+              nowLocal(),
+            ],
+          });
           pendingCount++;
           colorJobs.push({ cell: nameCell, color: COLOR_PENDING });
         }
-        markSynced.run(tabName, rowKey);
+
+        await db.execute({
+          sql: 'INSERT OR IGNORE INTO synced_rows (tab_name, row_key) VALUES (?, ?)',
+          args: [tabName, rowKey],
+        });
+        syncedKeys.add(rowKey);
       }
     }
 
-    // Color all processed row name-cells (green=synced, yellow=pending review)
+    // Color all processed row name-cells (blue=imported, yellow=pending review, grey=ignored)
     for (const job of colorJobs) {
       await colorCell(sheetId, job.cell, job.color);
     }
@@ -363,18 +383,20 @@ router.post('/run', async (req, res) => {
     const cellRefs = Object.values(SINGLE_CELLS).map((cell) => `'${sheetTabTitle}'!${cell}`);
     const batchResult = await sheets.spreadsheets.values.batchGet({ spreadsheetId: sheetId, ranges: cellRefs });
     const categories = Object.keys(SINGLE_CELLS);
-    categories.forEach((category, idx) => {
+    for (let idx = 0; idx < categories.length; idx++) {
       const valueRange = batchResult.data.valueRanges[idx];
-      if (!valueRange) return;
+      if (!valueRange) continue;
       const raw = valueRange.values && valueRange.values[0] && valueRange.values[0][0];
       const amount = parseFloat(raw);
       if (!isNaN(amount)) {
-        upsertDailyExpense(category, isoDate, amount, req.user.id, tabName);
+        await upsertDailyExpense(categories[idx], isoDate, amount, req.user.id, tabName);
       }
-    });
+    }
 
-    db.prepare('INSERT INTO sync_log (tab_name, rows_synced, new_customers_flagged, synced_by) VALUES (?, ?, ?, ?)')
-      .run(tabName, processedCount, pendingCount, req.user.id);
+    await db.execute({
+      sql: 'INSERT INTO sync_log (tab_name, rows_synced, new_customers_flagged, synced_by, synced_at) VALUES (?, ?, ?, ?, ?)',
+      args: [tabName, processedCount, pendingCount, req.user.id, nowLocal()],
+    });
 
     res.json({ success: true, processedCount, pendingCount, ignoredCount, tabName });
   } catch (err) {
@@ -389,31 +411,48 @@ router.post('/run', async (req, res) => {
 });
 
 // GET /api/sheets-sync/pending
-router.get('/pending', (req, res) => {
-  const pending = db.prepare('SELECT * FROM pending_sheet_syncs ORDER BY created_at DESC').all();
-  res.json(pending);
+router.get('/pending', async (req, res) => {
+  try {
+    const result = await db.execute('SELECT * FROM pending_sheet_syncs ORDER BY created_at DESC');
+    res.json(result.rows);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to list pending entries', details: err.message });
+  }
 });
 
 // GET /api/sheets-sync/pending-count
-router.get('/pending-count', (req, res) => {
-  const { count } = db.prepare('SELECT COUNT(*) as count FROM pending_sheet_syncs').get();
-  res.json({ count });
+router.get('/pending-count', async (req, res) => {
+  try {
+    const result = await db.execute('SELECT COUNT(*) as count FROM pending_sheet_syncs');
+    res.json({ count: Number(result.rows[0]?.count || 0) });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to count pending entries', details: err.message });
+  }
 });
 
 // POST /api/sheets-sync/approve
-// Body: { pendingId, action: 'link' | 'create' | 'reject', customerId?, newCustomerName? }
+// Body: { pendingId, action: 'link' | 'create' | 'reject' | 'ignore', customerId?, newCustomerName? }
 router.post('/approve', async (req, res) => {
   const { pendingId, action, customerId, newCustomerName } = req.body;
-  const pending = db.prepare('SELECT * FROM pending_sheet_syncs WHERE id = ?').get(pendingId);
-  if (!pending) return res.status(404).json({ error: 'Pending entry not found' });
-
   try {
+    const found = await db.execute({
+      sql: 'SELECT * FROM pending_sheet_syncs WHERE id = ?',
+      args: [pendingId],
+    });
+    const pending = found.rows[0];
+    if (!pending) return res.status(404).json({ error: 'Pending entry not found' });
+
     if (action === 'reject') {
-      db.prepare('DELETE FROM pending_sheet_syncs WHERE id = ?').run(pendingId);
+      await db.execute({ sql: 'DELETE FROM pending_sheet_syncs WHERE id = ?', args: [pendingId] });
       // Un-mark this row as synced, so the NEXT sync run reconsiders it
       // (e.g. if the owner fixes the name in the Sheet afterward).
       if (pending.row_key) {
-        db.prepare('DELETE FROM synced_rows WHERE tab_name = ? AND row_key = ?').run(pending.tab_name, pending.row_key);
+        await db.execute({
+          sql: 'DELETE FROM synced_rows WHERE tab_name = ? AND row_key = ?',
+          args: [pending.tab_name, pending.row_key],
+        });
       }
       await colorCell(pending.sheet_id, pending.marker_cell, COLOR_CLEAR);
       return res.json({ message: 'Rejected — will be reconsidered on the next sync' });
@@ -421,34 +460,35 @@ router.post('/approve', async (req, res) => {
 
     if (action === 'ignore') {
       // Permanently ignore this exact name (e.g. "43BRENT" turns out to be a
-      // rent/location code, not a real customer) so it's never flagged again,
-      // in any future day's sheet.
-      const normalized = normalizeIgnoredName(pending.sheet_name);
-      db.prepare(
-        'INSERT OR IGNORE INTO ignored_sheet_names (normalized_name, original_name, created_by) VALUES (?, ?, ?)'
-      ).run(normalized, pending.sheet_name, req.user.id);
-      db.prepare('DELETE FROM pending_sheet_syncs WHERE id = ?').run(pendingId);
+      // rent/location code, not a real customer) so it's never flagged again.
+      await db.execute({
+        sql: 'INSERT OR IGNORE INTO ignored_sheet_names (normalized_name, original_name, created_by) VALUES (?, ?, ?)',
+        args: [normalizeIgnoredName(pending.sheet_name), pending.sheet_name, req.user.id],
+      });
+      await db.execute({ sql: 'DELETE FROM pending_sheet_syncs WHERE id = ?', args: [pendingId] });
       await colorCell(pending.sheet_id, pending.marker_cell, COLOR_IGNORED);
       return res.json({ message: `"${pending.sheet_name}" will be auto-skipped in every future sync` });
     }
 
     let targetCustomerId = customerId;
     if (action === 'create') {
-      const info = db
-        .prepare('INSERT INTO customers (name, phone) VALUES (?, ?)')
-        .run(newCustomerName || pending.sheet_name, pending.phone || null);
-      targetCustomerId = info.lastInsertRowid;
+      const info = await db.execute({
+        sql: 'INSERT INTO customers (name, phone, created_at) VALUES (?, ?, ?)',
+        args: [newCustomerName || pending.sheet_name, pending.phone || null, nowLocal()],
+      });
+      targetCustomerId = Number(info.lastInsertRowid);
     } else if (action !== 'link' || !targetCustomerId) {
       return res.status(400).json({ error: 'action must be link (with customerId), create, reject, or ignore' });
     }
 
     // Now matched to a customer, but STILL doesn't touch their balance -
     // it moves into the "Imported" list for the Owner's final approval.
-    db.prepare(
-      'INSERT INTO staged_entries (customer_id, type, amount, tab_name, sheet_id, marker_cell, row_key, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
-    ).run(targetCustomerId, pending.type, pending.amount, pending.tab_name, pending.sheet_id, pending.marker_cell, pending.row_key, req.user.id);
+    await db.execute({
+      sql: 'INSERT INTO staged_entries (customer_id, type, amount, tab_name, sheet_id, marker_cell, row_key, created_by, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      args: [targetCustomerId, pending.type, pending.amount, pending.tab_name, pending.sheet_id, pending.marker_cell, pending.row_key, req.user.id, nowLocal()],
+    });
 
-    db.prepare('DELETE FROM pending_sheet_syncs WHERE id = ?').run(pendingId);
+    await db.execute({ sql: 'DELETE FROM pending_sheet_syncs WHERE id = ?', args: [pendingId] });
     await colorCell(pending.sheet_id, pending.marker_cell, COLOR_STAGED);
     res.json({ message: 'Moved to Imported Entries — approve it there to apply it', customerId: targetCustomerId });
   } catch (err) {
@@ -466,15 +506,22 @@ router.post('/bulk-reject', async (req, res) => {
   try {
     let rejectedCount = 0;
     for (const pendingId of pendingIds) {
-      const pending = db.prepare('SELECT * FROM pending_sheet_syncs WHERE id = ?').get(pendingId);
-      if (pending) {
-        db.prepare('DELETE FROM pending_sheet_syncs WHERE id = ?').run(pendingId);
-        if (pending.row_key) {
-          db.prepare('DELETE FROM synced_rows WHERE tab_name = ? AND row_key = ?').run(pending.tab_name, pending.row_key);
-        }
-        await colorCell(pending.sheet_id, pending.marker_cell, COLOR_CLEAR);
-        rejectedCount++;
+      const found = await db.execute({
+        sql: 'SELECT * FROM pending_sheet_syncs WHERE id = ?',
+        args: [pendingId],
+      });
+      const pending = found.rows[0];
+      if (!pending) continue;
+
+      await db.execute({ sql: 'DELETE FROM pending_sheet_syncs WHERE id = ?', args: [pendingId] });
+      if (pending.row_key) {
+        await db.execute({
+          sql: 'DELETE FROM synced_rows WHERE tab_name = ? AND row_key = ?',
+          args: [pending.tab_name, pending.row_key],
+        });
       }
+      await colorCell(pending.sheet_id, pending.marker_cell, COLOR_CLEAR);
+      rejectedCount++;
     }
     res.json({ message: 'Entries rejected', rejectedCount });
   } catch (err) {
@@ -494,19 +541,27 @@ router.post('/bulk-approve-as-create', async (req, res) => {
     const createdCustomerIds = [];
 
     for (const pendingId of pendingIds) {
-      const pending = db.prepare('SELECT * FROM pending_sheet_syncs WHERE id = ?').get(pendingId);
+      const found = await db.execute({
+        sql: 'SELECT * FROM pending_sheet_syncs WHERE id = ?',
+        args: [pendingId],
+      });
+      const pending = found.rows[0];
       if (!pending) continue;
 
-      const info = db.prepare('INSERT INTO customers (name, phone) VALUES (?, ?)').run(pending.sheet_name, pending.phone || null);
-      const customerId = info.lastInsertRowid;
+      const info = await db.execute({
+        sql: 'INSERT INTO customers (name, phone, created_at) VALUES (?, ?, ?)',
+        args: [pending.sheet_name, pending.phone || null, nowLocal()],
+      });
+      const customerId = Number(info.lastInsertRowid);
       createdCustomerIds.push(customerId);
 
       // Stage it - doesn't touch the balance until approved from Imported Entries.
-      db.prepare(
-        'INSERT INTO staged_entries (customer_id, type, amount, tab_name, sheet_id, marker_cell, row_key, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
-      ).run(customerId, pending.type, pending.amount, pending.tab_name, pending.sheet_id, pending.marker_cell, pending.row_key, req.user.id);
+      await db.execute({
+        sql: 'INSERT INTO staged_entries (customer_id, type, amount, tab_name, sheet_id, marker_cell, row_key, created_by, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+        args: [customerId, pending.type, pending.amount, pending.tab_name, pending.sheet_id, pending.marker_cell, pending.row_key, req.user.id, nowLocal()],
+      });
 
-      db.prepare('DELETE FROM pending_sheet_syncs WHERE id = ?').run(pendingId);
+      await db.execute({ sql: 'DELETE FROM pending_sheet_syncs WHERE id = ?', args: [pendingId] });
       await colorCell(pending.sheet_id, pending.marker_cell, COLOR_STAGED);
       approvedCount++;
     }
@@ -519,18 +574,28 @@ router.post('/bulk-approve-as-create', async (req, res) => {
 });
 
 // GET /api/sheets-sync/history - list past sync runs (for the Undo picker)
-router.get('/history', (req, res) => {
-  const rows = db.prepare('SELECT * FROM sync_log ORDER BY synced_at DESC LIMIT 30').all();
-  res.json(rows);
+router.get('/history', async (req, res) => {
+  try {
+    const result = await db.execute('SELECT * FROM sync_log ORDER BY synced_at DESC LIMIT 30');
+    res.json(result.rows);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to load sync history', details: err.message });
+  }
 });
 
 // GET /api/sheets-sync/legacy-count - counts pre-fix sync entries that have
 // no day-tag (sync_tab IS NULL), so the normal per-day Undo can't reach them.
-router.get('/legacy-count', (req, res) => {
-  const { count } = db
-    .prepare("SELECT COUNT(*) as count FROM transactions WHERE source = 'google_sheet' AND sync_tab IS NULL")
-    .get();
-  res.json({ count });
+router.get('/legacy-count', async (req, res) => {
+  try {
+    const result = await db.execute(
+      "SELECT COUNT(*) as count FROM transactions WHERE source = 'google_sheet' AND sync_tab IS NULL"
+    );
+    res.json({ count: Number(result.rows[0]?.count || 0) });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to count legacy entries', details: err.message });
+  }
 });
 
 // POST /api/sheets-sync/undo-legacy
@@ -545,26 +610,35 @@ router.post('/undo-legacy', async (req, res) => {
   }
 
   try {
-    const transactions = db
-      .prepare("SELECT * FROM transactions WHERE source = 'google_sheet' AND sync_tab IS NULL")
-      .all();
+    const found = await db.execute(
+      "SELECT * FROM transactions WHERE source = 'google_sheet' AND sync_tab IS NULL"
+    );
+    const transactions = found.rows;
 
-    const undoAll = db.transaction(() => {
+    // All-or-nothing: balances and their transactions must move together.
+    const tx = await db.transaction('write');
+    try {
       for (const txn of transactions) {
         const balanceChange = txn.type === 'udhaar' ? -txn.amount : txn.amount;
-        db.prepare('UPDATE customers SET balance = balance + ? WHERE id = ?').run(balanceChange, txn.customer_id);
-        db.prepare('DELETE FROM transactions WHERE id = ?').run(txn.id);
+        await tx.execute({
+          sql: 'UPDATE customers SET balance = balance + ? WHERE id = ?',
+          args: [balanceChange, txn.customer_id],
+        });
+        await tx.execute({ sql: 'DELETE FROM transactions WHERE id = ?', args: [txn.id] });
       }
-      db.prepare("DELETE FROM expenses WHERE source = 'google_sheet' AND sync_tab IS NULL").run();
-      db.prepare('DELETE FROM staged_entries WHERE tab_name IS NULL').run();
-      db.prepare('DELETE FROM pending_sheet_syncs WHERE tab_name IS NULL').run();
+      await tx.execute("DELETE FROM expenses WHERE source = 'google_sheet' AND sync_tab IS NULL");
+      await tx.execute('DELETE FROM staged_entries WHERE tab_name IS NULL');
+      await tx.execute('DELETE FROM pending_sheet_syncs WHERE tab_name IS NULL');
       // Old (pre-fix) rows were tracked under the literal tab name "Sheet1"
       // (the internal tab, not a real day) - clear only those, not any
       // correctly-tagged rows from a real day that may already exist.
-      db.prepare("DELETE FROM synced_rows WHERE tab_name = 'Sheet1' OR tab_name IS NULL").run();
-      db.prepare('DELETE FROM sync_log WHERE tab_name IS NULL').run();
-    });
-    undoAll();
+      await tx.execute("DELETE FROM synced_rows WHERE tab_name = 'Sheet1' OR tab_name IS NULL");
+      await tx.execute('DELETE FROM sync_log WHERE tab_name IS NULL');
+      await tx.commit();
+    } catch (e) {
+      await tx.rollback();
+      throw e;
+    }
 
     res.json({
       message: `Legacy cleanup complete. ${transactions.length} old (pre-fix) transactions reversed. All Sheet rows will be reconsidered on your next sync.`,
@@ -577,7 +651,7 @@ router.post('/undo-legacy', async (req, res) => {
 });
 
 // POST /api/sheets-sync/undo
-// Body: { tabName }
+// Body: { tabName, password }
 // Reverses every transaction/expense that came from that day's sync, and
 // frees up that tab's rows so a fresh sync run will reprocess them from scratch.
 router.post('/undo', async (req, res) => {
@@ -590,21 +664,35 @@ router.post('/undo', async (req, res) => {
   }
 
   try {
-    const transactions = db.prepare("SELECT * FROM transactions WHERE sync_tab = ? AND source = 'google_sheet'").all(tabName);
+    const found = await db.execute({
+      sql: "SELECT * FROM transactions WHERE sync_tab = ? AND source = 'google_sheet'",
+      args: [tabName],
+    });
+    const transactions = found.rows;
 
-    const undoAll = db.transaction(() => {
+    const tx = await db.transaction('write');
+    try {
       for (const txn of transactions) {
         const balanceChange = txn.type === 'udhaar' ? -txn.amount : txn.amount; // reverse it
-        db.prepare('UPDATE customers SET balance = balance + ? WHERE id = ?').run(balanceChange, txn.customer_id);
-        db.prepare('DELETE FROM transactions WHERE id = ?').run(txn.id);
+        await tx.execute({
+          sql: 'UPDATE customers SET balance = balance + ? WHERE id = ?',
+          args: [balanceChange, txn.customer_id],
+        });
+        await tx.execute({ sql: 'DELETE FROM transactions WHERE id = ?', args: [txn.id] });
       }
-      db.prepare("DELETE FROM expenses WHERE sync_tab = ? AND source = 'google_sheet'").run(tabName);
-      db.prepare('DELETE FROM pending_sheet_syncs WHERE tab_name = ?').run(tabName);
-      db.prepare('DELETE FROM staged_entries WHERE tab_name = ?').run(tabName);
-      db.prepare('DELETE FROM synced_rows WHERE tab_name = ?').run(tabName);
-      db.prepare('DELETE FROM sync_log WHERE tab_name = ?').run(tabName);
-    });
-    undoAll();
+      await tx.execute({
+        sql: "DELETE FROM expenses WHERE sync_tab = ? AND source = 'google_sheet'",
+        args: [tabName],
+      });
+      await tx.execute({ sql: 'DELETE FROM pending_sheet_syncs WHERE tab_name = ?', args: [tabName] });
+      await tx.execute({ sql: 'DELETE FROM staged_entries WHERE tab_name = ?', args: [tabName] });
+      await tx.execute({ sql: 'DELETE FROM synced_rows WHERE tab_name = ?', args: [tabName] });
+      await tx.execute({ sql: 'DELETE FROM sync_log WHERE tab_name = ?', args: [tabName] });
+      await tx.commit();
+    } catch (e) {
+      await tx.rollback();
+      throw e;
+    }
 
     res.json({
       message: `Undo complete for "${tabName}". ${transactions.length} transactions reversed. This day can now be synced fresh.`,
@@ -622,35 +710,49 @@ router.post('/undo', async (req, res) => {
 // ============================================================
 
 // GET /api/sheets-sync/staged - list everything awaiting final approval
-router.get('/staged', (req, res) => {
-  const rows = db
-    .prepare(
+router.get('/staged', async (req, res) => {
+  try {
+    const result = await db.execute(
       `SELECT se.*, c.name as customer_name, c.phone as customer_phone
        FROM staged_entries se
        JOIN customers c ON c.id = se.customer_id
        ORDER BY se.created_at DESC`
-    )
-    .all();
-  res.json(rows);
+    );
+    res.json(result.rows);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to list imported entries', details: err.message });
+  }
 });
 
 // GET /api/sheets-sync/staged-count
-router.get('/staged-count', (req, res) => {
-  const { count } = db.prepare('SELECT COUNT(*) as count FROM staged_entries').get();
-  res.json({ count });
+router.get('/staged-count', async (req, res) => {
+  try {
+    const result = await db.execute('SELECT COUNT(*) as count FROM staged_entries');
+    res.json({ count: Number(result.rows[0]?.count || 0) });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to count imported entries', details: err.message });
+  }
 });
 
-// POST /api/sheets-sync/staged/:id/approve - THE final step: applies to balance + sends WhatsApp
+// POST /api/sheets-sync/staged/:id/approve - THE final step: applies to balance
 router.post('/staged/:id/approve', async (req, res) => {
-  const staged = db.prepare('SELECT * FROM staged_entries WHERE id = ?').get(req.params.id);
-  if (!staged) return res.status(404).json({ error: 'Entry not found' });
-
   try {
-    const isoDate = todayIsoDate();
-    const updated = applyTransaction(staged.customer_id, staged.type, staged.amount, 'google_sheet', req.user.id, isoDate, staged.tab_name);
+    const found = await db.execute({
+      sql: 'SELECT * FROM staged_entries WHERE id = ?',
+      args: [req.params.id],
+    });
+    const staged = found.rows[0];
+    if (!staged) return res.status(404).json({ error: 'Entry not found' });
+
+    const isoDate = todayLocal();
+    const updated = await applyTransaction(
+      staged.customer_id, staged.type, staged.amount, 'google_sheet', req.user.id, isoDate, staged.tab_name
+    );
     notify(updated, staged.type, staged.amount, updated.balance);
 
-    db.prepare('DELETE FROM staged_entries WHERE id = ?').run(staged.id);
+    await db.execute({ sql: 'DELETE FROM staged_entries WHERE id = ?', args: [staged.id] });
     await colorCell(staged.sheet_id, staged.marker_cell, COLOR_SYNCED);
     res.json({ message: 'Approved and applied to balance', customerId: staged.customer_id, newBalance: updated.balance });
   } catch (err) {
@@ -659,15 +761,22 @@ router.post('/staged/:id/approve', async (req, res) => {
   }
 });
 
-// POST /api/sheets-sync/staged/:id/reject - discard it, don't apply, row gets reconsidered next sync
+// POST /api/sheets-sync/staged/:id/reject - discard it, row gets reconsidered next sync
 router.post('/staged/:id/reject', async (req, res) => {
-  const staged = db.prepare('SELECT * FROM staged_entries WHERE id = ?').get(req.params.id);
-  if (!staged) return res.status(404).json({ error: 'Entry not found' });
-
   try {
-    db.prepare('DELETE FROM staged_entries WHERE id = ?').run(staged.id);
+    const found = await db.execute({
+      sql: 'SELECT * FROM staged_entries WHERE id = ?',
+      args: [req.params.id],
+    });
+    const staged = found.rows[0];
+    if (!staged) return res.status(404).json({ error: 'Entry not found' });
+
+    await db.execute({ sql: 'DELETE FROM staged_entries WHERE id = ?', args: [staged.id] });
     if (staged.row_key) {
-      db.prepare('DELETE FROM synced_rows WHERE tab_name = ? AND row_key = ?').run(staged.tab_name, staged.row_key);
+      await db.execute({
+        sql: 'DELETE FROM synced_rows WHERE tab_name = ? AND row_key = ?',
+        args: [staged.tab_name, staged.row_key],
+      });
     }
     await colorCell(staged.sheet_id, staged.marker_cell, COLOR_CLEAR);
     res.json({ message: 'Rejected — will be reconsidered on the next sync' });
@@ -677,17 +786,19 @@ router.post('/staged/:id/reject', async (req, res) => {
   }
 });
 
-// POST /api/sheets-sync/staged/bulk-approve - approve everything in the Imported list at once
+// POST /api/sheets-sync/staged/bulk-approve - approve everything at once
 router.post('/staged/bulk-approve', async (req, res) => {
   try {
-    const allStaged = db.prepare('SELECT * FROM staged_entries').all();
-    const isoDate = todayIsoDate();
+    const allStaged = (await db.execute('SELECT * FROM staged_entries')).rows;
+    const isoDate = todayLocal();
     let approvedCount = 0;
 
     for (const staged of allStaged) {
-      const updated = applyTransaction(staged.customer_id, staged.type, staged.amount, 'google_sheet', req.user.id, isoDate, staged.tab_name);
+      const updated = await applyTransaction(
+        staged.customer_id, staged.type, staged.amount, 'google_sheet', req.user.id, isoDate, staged.tab_name
+      );
       notify(updated, staged.type, staged.amount, updated.balance);
-      db.prepare('DELETE FROM staged_entries WHERE id = ?').run(staged.id);
+      await db.execute({ sql: 'DELETE FROM staged_entries WHERE id = ?', args: [staged.id] });
       await colorCell(staged.sheet_id, staged.marker_cell, COLOR_SYNCED);
       approvedCount++;
     }

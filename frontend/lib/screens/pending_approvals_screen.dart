@@ -109,6 +109,29 @@ class _PendingApprovalsScreenState extends State<PendingApprovalsScreen> {
     }
   }
 
+  /// Opens a searchable list of ALL customers so the Owner can link this sheet
+  /// entry to whichever customer they choose — used when the auto-suggestion
+  /// is wrong, or when there was no suggestion at all.
+  Future<void> _linkToChosenCustomer(Map<String, dynamic> item) async {
+    final chosen = await showDialog<Map<String, dynamic>>(
+      context: context,
+      builder: (_) => _CustomerPickerDialog(sheetName: item['sheet_name']?.toString() ?? ''),
+    );
+    if (chosen == null) return;
+
+    try {
+      await ApiService.resolvePendingSync(item['id'], 'link', customerId: chosen['id']);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Linked to ${chosen['name']}')),
+        );
+      }
+      _load();
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed: $e')));
+    }
+  }
+
   Future<void> _createNew(Map<String, dynamic> item) async {
     final controller = TextEditingController(text: item['sheet_name']);
     final confirmed = await showDialog<bool>(
@@ -285,9 +308,25 @@ class _PendingApprovalsScreenState extends State<PendingApprovalsScreen> {
                                   child: Text('Did you mean: ${item['suggested_customer_name']}?'),
                                 )
                               else
-                                const Text('No matching customer found — likely a new customer',
+                                const Text('No matching customer found — pick one below, or create new',
                                     style: TextStyle(fontStyle: FontStyle.italic, color: Colors.grey)),
-                              const SizedBox(height: 12),
+                              const SizedBox(height: 10),
+                              // Always available: browse/search the full customer list and
+                              // link to whichever customer the Owner picks. This is the way
+                              // out when the auto-suggestion is wrong or missing.
+                              SizedBox(
+                                width: double.infinity,
+                                child: OutlinedButton.icon(
+                                  style: OutlinedButton.styleFrom(
+                                    foregroundColor: Colors.teal,
+                                    side: const BorderSide(color: Colors.teal),
+                                  ),
+                                  icon: const Icon(Icons.person_search, size: 18),
+                                  label: const Text('Choose Customer from List'),
+                                  onPressed: () => _linkToChosenCustomer(item),
+                                ),
+                              ),
+                              const SizedBox(height: 8),
                               Row(
                                 children: [
                                   if (hasSuggestion)
@@ -327,6 +366,151 @@ class _PendingApprovalsScreenState extends State<PendingApprovalsScreen> {
                     },
                   ),
                 ),
+    );
+  }
+}
+
+/// A searchable picker listing every customer, so a pending sheet entry can be
+/// linked to any of them — not just whatever the fuzzy matcher suggested.
+class _CustomerPickerDialog extends StatefulWidget {
+  final String sheetName;
+  const _CustomerPickerDialog({required this.sheetName});
+
+  @override
+  State<_CustomerPickerDialog> createState() => _CustomerPickerDialogState();
+}
+
+class _CustomerPickerDialogState extends State<_CustomerPickerDialog> {
+  List<dynamic> _all = [];
+  List<dynamic> _filtered = [];
+  bool _loading = true;
+  final _searchController = TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+    _loadCustomers();
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _loadCustomers() async {
+    try {
+      final customers = await ApiService.getCustomers();
+      if (!mounted) return;
+      setState(() {
+        _all = customers;
+        _filtered = customers;
+        _loading = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _loading = false);
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed to load customers: $e')));
+    }
+  }
+
+  void _filter(String query) {
+    final q = query.trim().toLowerCase();
+    setState(() {
+      _filtered = q.isEmpty
+          ? _all
+          : _all.where((c) {
+              final name = (c['name'] ?? '').toString().toLowerCase();
+              final phone = (c['phone'] ?? '').toString().toLowerCase();
+              return name.contains(q) || phone.contains(q);
+            }).toList();
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      child: SizedBox(
+        width: 500,
+        height: 560,
+        child: Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('Choose a Customer', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                  if (widget.sheetName.isNotEmpty) ...[
+                    const SizedBox(height: 4),
+                    Text(
+                      'Sheet entry: "${widget.sheetName}"',
+                      style: const TextStyle(fontSize: 12, color: Colors.grey),
+                    ),
+                  ],
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: _searchController,
+                    autofocus: true,
+                    onChanged: _filter,
+                    decoration: const InputDecoration(
+                      hintText: 'Search by name or phone...',
+                      prefixIcon: Icon(Icons.search),
+                      border: OutlineInputBorder(),
+                      isDense: true,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const Divider(height: 1),
+            Expanded(
+              child: _loading
+                  ? const Center(child: CircularProgressIndicator())
+                  : _filtered.isEmpty
+                      ? const Center(child: Text('No matching customers', style: TextStyle(color: Colors.grey)))
+                      : ListView.builder(
+                          itemCount: _filtered.length,
+                          itemBuilder: (context, index) {
+                            final c = _filtered[index];
+                            final balance = ((c['balance'] as num?) ?? 0).toDouble();
+                            return ListTile(
+                              leading: const CircleAvatar(child: Icon(Icons.person, size: 20)),
+                              title: Text(c['name']?.toString() ?? 'Unnamed'),
+                              subtitle: Text(
+                                (c['phone'] == null || c['phone'].toString().isEmpty)
+                                    ? 'No phone'
+                                    : c['phone'].toString(),
+                                style: const TextStyle(fontSize: 12),
+                              ),
+                              trailing: Text(
+                                'Rs ${balance.toStringAsFixed(0)}',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  color: balance > 0 ? Colors.red : Colors.grey,
+                                ),
+                              ),
+                              onTap: () => Navigator.pop(context, Map<String, dynamic>.from(c)),
+                            );
+                          },
+                        ),
+            ),
+            const Divider(height: 1),
+            Padding(
+              padding: const EdgeInsets.all(8),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  TextButton(
+                    onPressed: () => Navigator.pop(context),
+                    child: const Text('Cancel'),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

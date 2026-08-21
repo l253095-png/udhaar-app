@@ -1,22 +1,44 @@
-// One-time cleanup script: clears test/demo data so you can start fresh
-// with your real Google Sheet data. Owner/Worker logins are NOT touched.
+// Clears customer/transaction/sync data so you can start fresh.
+// Owner/Worker logins are NOT touched.
 //
-// Run this from the backend folder:  node reset_data.js
+// Run from the backend folder:  node reset_data.js
 
-const db = require('./config/db');
+const { db, initDb } = require('./config/db');
 
-const tables = ['transactions', 'pending_sheet_syncs', 'synced_rows', 'expenses', 'sync_log', 'customers'];
+const tables = [
+  'transactions',
+  'staged_entries',
+  'pending_sheet_syncs',
+  'synced_rows',
+  'expenses',
+  'sync_log',
+  'customers',
+];
 
-const runReset = db.transaction(() => {
-  for (const table of tables) {
-    const info = db.prepare(`DELETE FROM ${table}`).run();
-    console.log(`Cleared ${table}: ${info.changes} rows removed`);
+(async () => {
+  await initDb();
+
+  const tx = await db.transaction('write');
+  try {
+    for (const table of tables) {
+      const info = await tx.execute(`DELETE FROM ${table}`);
+      console.log(`Cleared ${table}: ${info.rowsAffected} rows removed`);
+    }
+    // Reset auto-increment counters so new records start from id=1 again
+    await tx.execute({
+      sql: `DELETE FROM sqlite_sequence WHERE name IN (${tables.map(() => '?').join(',')})`,
+      args: tables,
+    });
+    await tx.commit();
+  } catch (e) {
+    await tx.rollback();
+    throw e;
   }
-  // Reset auto-increment counters so new records start from id=1 again
-  db.prepare(`DELETE FROM sqlite_sequence WHERE name IN (${tables.map(() => '?').join(',')})`).run(...tables);
+
+  console.log('\nDone. Customers, transactions, imported/pending entries, and expenses are all cleared.');
+  console.log('Your Owner/Worker logins are untouched.');
+  process.exit(0);
+})().catch((err) => {
+  console.error('Reset failed:', err);
+  process.exit(1);
 });
-
-runReset();
-
-console.log('\nDone. Customers, transactions, pending approvals, and expense entries are all cleared.');
-console.log('Your Owner/Worker logins are untouched.');

@@ -2,28 +2,39 @@
 // weren't part of the main import). These get added with balance=0 and no
 // opening transaction - just a customer record for future tracking.
 //
-// Run this from the backend folder, AFTER the main import_customers.js:
+// Run from the backend folder, AFTER import_customers.js:
 //   node import_zero_balance_customers.js
 
 const fs = require('fs');
 const path = require('path');
-const db = require('./config/db');
+const { db, initDb } = require('./config/db');
+const { nowLocal } = require('./config/timeHelper');
 
-const dataPath = path.join(__dirname, 'zero_balance_import.json');
-const names = JSON.parse(fs.readFileSync(dataPath, 'utf-8'));
+const names = JSON.parse(fs.readFileSync(path.join(__dirname, 'zero_balance_import.json'), 'utf-8'));
 
-const insertCustomer = db.prepare('INSERT INTO customers (name, phone, balance) VALUES (?, NULL, 0)');
+(async () => {
+  await initDb();
 
-const runImport = db.transaction(() => {
+  const tx = await db.transaction('write');
   let count = 0;
-  for (const name of names) {
-    insertCustomer.run(name);
-    count++;
+  try {
+    for (const name of names) {
+      await tx.execute({
+        sql: 'INSERT INTO customers (name, phone, balance, created_at) VALUES (?, NULL, 0, ?)',
+        args: [name, nowLocal()],
+      });
+      count++;
+    }
+    await tx.commit();
+  } catch (e) {
+    await tx.rollback();
+    throw e;
   }
-  return count;
+
+  console.log(`\nZero-balance customers added: ${count}`);
+  console.log('These have Rs 0 balance and no transaction history yet.');
+  process.exit(0);
+})().catch((err) => {
+  console.error('Import failed:', err);
+  process.exit(1);
 });
-
-const imported = runImport();
-
-console.log(`\nZero-balance customers added: ${imported}`);
-console.log(`These have Rs 0 balance and no transaction history yet.`);
