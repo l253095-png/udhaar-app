@@ -28,14 +28,14 @@ class SyncException implements Exception {
 ///
 /// Update PUBLIC_TUNNEL_URL below whenever the tunnel address changes.
 class ApiService {
-  static const String _publicTunnelUrl = 'https://dosage-ssl-recording-determine.trycloudflare.com';
+  static const String _renderUrl = 'https://udhaar-app.onrender.com';
   static const String _localUrl = 'http://localhost:3000';
 
   static String get baseUrl {
     if (!kIsWeb && Platform.isWindows) {
       return _localUrl;
     }
-    return _publicTunnelUrl;
+    return _renderUrl;
   }
 
   static Future<String?> getToken() async {
