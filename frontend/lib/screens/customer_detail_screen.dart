@@ -69,7 +69,7 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
     );
 
     final cleanPhone = phone.replaceAll(RegExp(r'[^\d+]'), '');
-    final url = Uri.parse("https://wa.me/$cleanPhone?text=$message");
+    final url = Uri.parse("https://api.whatsapp.com/send?phone=$cleanPhone&text=$message");
 
     try {
       if (await canLaunchUrl(url)) {

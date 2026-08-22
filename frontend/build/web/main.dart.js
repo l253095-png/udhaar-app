@@ -91343,7 +91343,7 @@ case 6:h=A.j(j)
 g=B.d.a3(a0,0)
 f=J.bz(m)!==0?"\n\nCheck your complete transaction history:\n"+A.j(m):""
 e=A.xl(2,"Assalam-o-Alaikum "+h+",\nTis is a computer generated message.\nYour Remaining balance is Rs "+g+" hai.\nIf you want to see your full transaction history, please click the link below:\nThanks!\n\n"+f,B.aa,!1)
-l=A.bx("https://wa.me/"+A.j(d.rH(c,A.cq("[^\\d+]",!1),""))+"?text="+e,0,null)
+l=A.bx("https://api.whatsapp.com/send?phone="+A.j(d.rH(c,A.cq("[^\\d+]",!1),""))+"&text="+e,0,null)
 p=9
 s=15
 return A.l(A.aCX(l),$async$qi)
