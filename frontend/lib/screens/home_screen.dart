@@ -95,18 +95,28 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   /// The ONE sync button for the whole app.
-  /// Nothing touches customer balances directly — every matched row goes
-  /// into the "Imported" list first, awaiting the Owner's final approval.
+  /// Shows Google Sheets list from Drive, user picks which sheet to sync.
+  /// Matched rows go into the "Imported" list first, awaiting final approval.
   Future<void> _syncFromSheet() async {
+    final chosenSheet = await showDialog<dynamic>(
+      context: context,
+      builder: (_) => const _SheetPickerDialog(),
+    );
+
+    if (chosenSheet == null) return;
+
+    final sheetId = chosenSheet['id']?.toString();
+    final sheetName = chosenSheet['name']?.toString() ?? 'Selected Sheet';
+
     setState(() => _syncing = true);
     try {
-      final result = await ApiService.runSheetSync();
+      final result = await ApiService.runSheetSync(sheetId: sheetId, fileName: sheetName);
       final staged = result['processedCount'] ?? 0;
       final pending = result['pendingCount'] ?? 0;
       _showSnack(
         pending > 0
-            ? '$staged entries imported (awaiting approval). $pending need name matching below.'
-            : '$staged entries imported — check "Imported Entries" to approve them.',
+            ? '$staged entries imported from "$sheetName". $pending need name matching below.'
+            : '$staged entries imported from "$sheetName" — check "Imported Entries" to approve them.',
       );
       _loadPendingCount();
       _loadStagedCount();
@@ -353,6 +363,210 @@ class _ModuleTile extends StatelessWidget {
                 ),
               ),
             ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _SheetPickerDialog extends StatefulWidget {
+  const _SheetPickerDialog();
+
+  @override
+  State<_SheetPickerDialog> createState() => _SheetPickerDialogState();
+}
+
+class _SheetPickerDialogState extends State<_SheetPickerDialog> {
+  List<dynamic> _sheets = [];
+  bool _loading = true;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchSheets();
+  }
+
+  Future<void> _fetchSheets() async {
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+    try {
+      final list = await ApiService.getAvailableSheets();
+      if (!mounted) return;
+      setState(() {
+        _sheets = list;
+        _loading = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _error = e is SyncException ? e.message : 'Failed to load sheets: $e';
+        _loading = false;
+      });
+    }
+  }
+
+  String _formatDate(dynamic dateStr) {
+    if (dateStr == null) return '';
+    try {
+      final dt = DateTime.parse(dateStr.toString()).toLocal();
+      final months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+      final month = months[dt.month - 1];
+      final hour = dt.hour > 12 ? dt.hour - 12 : (dt.hour == 0 ? 12 : dt.hour);
+      final ampm = dt.hour >= 12 ? 'PM' : 'AM';
+      final minute = dt.minute.toString().padLeft(2, '0');
+      return '${dt.day} $month ${dt.year}, $hour:$minute $ampm';
+    } catch (_) {
+      return dateStr.toString();
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      child: Container(
+        width: 500,
+        constraints: const BoxConstraints(maxHeight: 520),
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Colors.green.shade50,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Icon(Icons.table_chart_rounded, color: Colors.green, size: 24),
+                ),
+                const SizedBox(width: 12),
+                const Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Select Google Sheet to Sync',
+                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                      ),
+                      SizedBox(height: 2),
+                      Text(
+                        'Choose a daily ledger sheet from your Google Drive',
+                        style: TextStyle(fontSize: 12, color: Colors.grey),
+                      ),
+                    ],
+                  ),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.close),
+                  onPressed: () => Navigator.of(context).pop(),
+                ),
+              ],
+            ),
+            const Divider(height: 24),
+            if (_loading)
+              const Padding(
+                padding: EdgeInsets.symmetric(vertical: 40),
+                child: Center(
+                  child: Column(
+                    children: [
+                      CircularProgressIndicator(),
+                      SizedBox(height: 16),
+                      Text('Fetching sheets from Google Drive...'),
+                    ],
+                  ),
+                ),
+              )
+            else if (_error != null)
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 24),
+                child: Column(
+                  children: [
+                    const Icon(Icons.error_outline, color: Colors.red, size: 40),
+                    const SizedBox(height: 12),
+                    Text(_error!, textAlign: TextAlign.center, style: const TextStyle(color: Colors.red)),
+                    const SizedBox(height: 16),
+                    ElevatedButton.icon(
+                      icon: const Icon(Icons.refresh),
+                      label: const Text('Try Again'),
+                      onPressed: _fetchSheets,
+                    ),
+                  ],
+                ),
+              )
+            else if (_sheets.isEmpty)
+              const Padding(
+                padding: EdgeInsets.symmetric(vertical: 40),
+                child: Center(
+                  child: Text(
+                    'No spreadsheets found in your Google Drive folder.',
+                    style: TextStyle(color: Colors.grey),
+                  ),
+                ),
+              )
+            else
+              Flexible(
+                child: ListView.separated(
+                  shrinkWrap: true,
+                  itemCount: _sheets.length,
+                  separatorBuilder: (_, __) => const Divider(height: 1),
+                  itemBuilder: (context, index) {
+                    final sheet = _sheets[index];
+                    final isLatest = index == 0;
+                    final modTime = _formatDate(sheet['modifiedTime']);
+
+                    return ListTile(
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                      leading: CircleAvatar(
+                        backgroundColor: isLatest ? Colors.green.shade100 : Colors.grey.shade200,
+                        child: Icon(
+                          Icons.description_outlined,
+                          color: isLatest ? Colors.green.shade800 : Colors.grey.shade700,
+                          size: 20,
+                        ),
+                      ),
+                      title: Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              sheet['name'] ?? 'Untitled Sheet',
+                              style: TextStyle(
+                                fontWeight: isLatest ? FontWeight.bold : FontWeight.w500,
+                                fontSize: 15,
+                              ),
+                            ),
+                          ),
+                          if (isLatest)
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: Colors.green.shade600,
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: const Text(
+                                'LATEST',
+                                style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
+                              ),
+                            ),
+                        ],
+                      ),
+                      subtitle: modTime.isNotEmpty
+                          ? Text('Modified: $modTime', style: const TextStyle(fontSize: 12, color: Colors.grey))
+                          : null,
+                      trailing: const Icon(Icons.chevron_right, size: 20, color: Colors.grey),
+                      onTap: () {
+                        Navigator.of(context).pop(sheet);
+                      },
+                    );
+                  },
+                ),
+              ),
           ],
         ),
       ),

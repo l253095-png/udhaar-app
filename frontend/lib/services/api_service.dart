@@ -229,11 +229,28 @@ class ApiService {
   }
 
   // ---- Google Sheets Sync (Owner only) ----
-  static Future<Map<String, dynamic>> runSheetSync({String? tabName}) async {
+  static Future<List<dynamic>> getAvailableSheets() async {
+    final res = await http.get(Uri.parse('$baseUrl/api/sheets-sync/available-sheets'), headers: await _headers());
+    final data = jsonDecode(res.body);
+    if (res.statusCode != 200) {
+      final errorMessage = data is Map ? (data['error'] ?? 'Failed to fetch sheets') : 'Failed to fetch sheets';
+      final errorCode = data is Map ? (data['errorCode'] ?? 'DRIVE_ERROR') : 'DRIVE_ERROR';
+      final details = data is Map ? (data['details'] ?? '') : '';
+      throw SyncException(errorMessage, errorCode, details);
+    }
+    return data is List ? data : [];
+  }
+
+  static Future<Map<String, dynamic>> runSheetSync({String? sheetId, String? fileName, String? tabName}) async {
+    final Map<String, dynamic> body = {};
+    if (sheetId != null) body['sheetId'] = sheetId;
+    if (fileName != null) body['fileName'] = fileName;
+    if (tabName != null) body['tabName'] = tabName;
+
     final res = await http.post(
       Uri.parse('$baseUrl/api/sheets-sync/run'),
       headers: await _headers(),
-      body: jsonEncode(tabName != null ? {'tabName': tabName} : {}),
+      body: jsonEncode(body),
     );
     final data = jsonDecode(res.body);
     if (res.statusCode != 200) {

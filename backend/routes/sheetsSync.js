@@ -280,12 +280,60 @@ function todayIsoDate() {
   return `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
 }
 
+async function getAvailableSheetsList(limit = 30) {
+  const folderId = process.env.GOOGLE_DRIVE_FOLDER_ID;
+  if (!folderId) {
+    throw { error: 'Google Drive folder ID is not configured.', errorCode: 'MISSING_FOLDER_ID', details: 'GOOGLE_DRIVE_FOLDER_ID is not set in .env' };
+  }
+  const auth = getAuthClient();
+  const drive = getDriveClient(auth);
+  try {
+    const response = await drive.files.list({
+      q: `'${folderId}' in parents and mimeType='application/vnd.google-apps.spreadsheet' and trashed=false`,
+      spaces: 'drive',
+      fields: 'files(id, name, modifiedTime, createdTime)',
+      orderBy: 'modifiedTime desc',
+      pageSize: limit,
+    });
+    return response.data.files || [];
+  } catch (err) {
+    if (err.errorCode) throw err;
+    throw { error: 'Failed to fetch sheets list from your Drive folder.', errorCode: 'DRIVE_API_ERROR', details: err.message || 'Unknown error' };
+  }
+}
+
+// GET /api/sheets-sync/available-sheets
+router.get('/available-sheets', async (req, res) => {
+  try {
+    const sheets = await getAvailableSheetsList(50);
+    res.json(sheets);
+  } catch (err) {
+    console.error('[Sheets Sync Error - Available Sheets]', err);
+    res.status(500).json({
+      error: err.error || err.message || 'Failed to fetch available sheets',
+      errorCode: err.errorCode,
+      details: err.details,
+    });
+  }
+});
+
 // POST /api/sheets-sync/run
 router.post('/run', async (req, res) => {
   try {
     const auth = getAuthClient();
     const sheets = getSheetsClient(auth);
-    const { fileId: sheetId, fileName: tabName } = await getLatestSheetFile();
+
+    let sheetId = req.body?.sheetId;
+    let tabName = req.body?.fileName;
+
+    if (!sheetId) {
+      const latest = await getLatestSheetFile();
+      sheetId = latest.fileId;
+      tabName = latest.fileName;
+    } else if (!tabName) {
+      tabName = 'Selected Sheet';
+    }
+
     const sheetTabTitle = await getFirstSheetName(sheetId);
     const isoDate = todayIsoDate();
 
