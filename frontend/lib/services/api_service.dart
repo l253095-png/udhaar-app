@@ -333,6 +333,15 @@ class ApiService {
     return data;
   }
 
+  static Future<Map<String, dynamic>> bulkRejectStagedEntries() async {
+    final res = await http.post(Uri.parse('$baseUrl/api/sheets-sync/staged/bulk-reject'), headers: await _headers());
+    final data = jsonDecode(res.body);
+    if (res.statusCode != 200) {
+      throw Exception(data['error'] ?? 'Failed to bulk reject');
+    }
+    return data;
+  }
+
   static Future<List<dynamic>> getPendingSyncs() async {
     final res = await http.get(Uri.parse('$baseUrl/api/sheets-sync/pending'), headers: await _headers());
     return jsonDecode(res.body);

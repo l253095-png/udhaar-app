@@ -6,7 +6,11 @@ node_modules/
 server.log
 backend/config/service-account-key.json
 .dart_tool/
+# Ignore build artifacts except frontend/build/web needed for Render web deployment
 build/
+!frontend/build/
+!frontend/build/web/
+!frontend/build/web/**
 .flutter-plugins
 .flutter-plugins-dependencies
 

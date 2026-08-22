@@ -105,20 +105,103 @@ class _ImportedEntriesScreenState extends State<ImportedEntriesScreen> {
     }
   }
 
+  Future<void> _rejectAll() async {
+    if (_entries.isEmpty) return;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('Reject All Imported Entries?'),
+        content: Text('All ${_entries.length} entries will be discarded without applying to customer balances.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Reject All'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    try {
+      final result = await ApiService.bulkRejectStagedEntries();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(result['message'] ?? 'Rejected all')));
+      }
+      _load();
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed: $e')));
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final dateFormat = DateFormat('dd MMM, hh:mm a');
     final total = _entries.fold<double>(0, (sum, e) => sum + (e['amount'] as num).toDouble());
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Imported Entries')),
-      floatingActionButton: _entries.isEmpty
+      appBar: AppBar(
+        title: const Text('Imported Entries (Approval List)'),
+        actions: _entries.isNotEmpty
+            ? [
+                Tooltip(
+                  message: 'Approve All Entries',
+                  child: IconButton(
+                    icon: const Icon(Icons.done_all, color: Colors.green),
+                    onPressed: _approveAll,
+                  ),
+                ),
+                Tooltip(
+                  message: 'Reject All Entries',
+                  child: IconButton(
+                    icon: const Icon(Icons.cancel, color: Colors.red),
+                    onPressed: _rejectAll,
+                  ),
+                ),
+              ]
+            : null,
+      ),
+      bottomNavigationBar: _entries.isEmpty
           ? null
-          : FloatingActionButton.extended(
-              onPressed: _approveAll,
-              backgroundColor: Colors.green,
-              icon: const Icon(Icons.done_all),
-              label: const Text('Approve All'),
+          : Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                boxShadow: [
+                  BoxShadow(color: Colors.black.withOpacity(0.08), blurRadius: 8, offset: const Offset(0, -2))
+                ],
+              ),
+              child: SafeArea(
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: Colors.red,
+                          side: const BorderSide(color: Colors.red),
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                        ),
+                        icon: const Icon(Icons.cancel_outlined),
+                        label: const Text('Reject All', style: TextStyle(fontWeight: FontWeight.bold)),
+                        onPressed: _rejectAll,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: ElevatedButton.icon(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.green,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                        ),
+                        icon: const Icon(Icons.done_all),
+                        label: const Text('Approve All', style: TextStyle(fontWeight: FontWeight.bold)),
+                        onPressed: _approveAll,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())

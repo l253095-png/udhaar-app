@@ -835,4 +835,33 @@ router.post('/staged/bulk-approve', async (req, res) => {
   }
 });
 
+// POST /api/sheets-sync/staged/bulk-reject
+router.post('/staged/bulk-reject', async (req, res) => {
+  try {
+    const allStagedRes = await db.execute('SELECT * FROM staged_entries');
+    const allStaged = allStagedRes.rows;
+    let rejectedCount = 0;
+
+    for (const staged of allStaged) {
+      await db.execute({
+        sql: 'DELETE FROM staged_entries WHERE id = ?',
+        args: [staged.id]
+      });
+      if (staged.row_key) {
+        await db.execute({
+          sql: 'DELETE FROM synced_rows WHERE tab_name = ? AND row_key = ?',
+          args: [staged.tab_name, staged.row_key]
+        });
+      }
+      await colorCell(staged.sheet_id, staged.marker_cell, COLOR_CLEAR);
+      rejectedCount++;
+    }
+
+    res.json({ message: `${rejectedCount} entries rejected and discarded`, rejectedCount });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to bulk reject staged entries', details: err.message });
+  }
+});
+
 module.exports = router;
