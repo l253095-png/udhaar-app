@@ -143,6 +143,13 @@ class ApiService {
     }
     return jsonDecode(res.body)['link'];
   }
+    static Future<List<dynamic>> getAuditLog() async {
+    final res = await http.get(Uri.parse('$baseUrl/api/audit-log'), headers: await _headers());
+    if (res.statusCode != 200) {
+      throw Exception(jsonDecode(res.body)['error'] ?? 'Failed to fetch audit log');
+    }
+    return jsonDecode(res.body);
+  }
     static Future<void> downloadRangeReportPdf(DateTime start, DateTime end) async {
     final startStr = start.toIso8601String().split('T')[0];
     final endStr = end.toIso8601String().split('T')[0];

@@ -4,7 +4,7 @@ import 'login_screen.dart';
 import 'add_customer_screen.dart';
 import 'customer_detail_screen.dart';
 import 'transaction_report_screen.dart';
-
+import 'audit_history_screen.dart';
 class OwnerDashboard extends StatefulWidget {
   const OwnerDashboard({super.key});
 
@@ -313,6 +313,15 @@ class _OwnerDashboardState extends State<OwnerDashboard> {
       appBar: AppBar(
         title: const Text('Udhaar System'),
         actions: [
+           IconButton(
+            icon: const Icon(Icons.history),
+            tooltip: 'History',
+            onPressed: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const AuditHistoryScreen()),
+              );
+            },
+          ),
           IconButton(
             icon: const Icon(Icons.person_add),
             tooltip: 'Add Customer',
@@ -336,6 +345,7 @@ class _OwnerDashboardState extends State<OwnerDashboard> {
       body: Column(
         children: [
           // REPORT QUICK-ACCESS TILES AT TOP
+                    // REPORT QUICK-ACCESS TILES AT TOP
           SizedBox(
             height: 100,
             child: ListView(
@@ -343,20 +353,10 @@ class _OwnerDashboardState extends State<OwnerDashboard> {
               padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 8.0),
               children: [
                 _buildReportTile(
-                  'This Month\nDebit',
-                  Icons.calendar_month,
-                  Colors.red,
-                  () => Navigator.of(context).push(MaterialPageRoute(
-                      builder: (_) => const TransactionReportScreen(
-                          title: 'This Month — Debit', type: 'udhaar', period: 'month'))),
-                ),
-                _buildReportTile(
-                  'This Month\nCredit',
-                  Icons.calendar_month,
-                  Colors.green,
-                  () => Navigator.of(context).push(MaterialPageRoute(
-                      builder: (_) => const TransactionReportScreen(
-                          title: 'This Month — Credit', type: 'wasooli', period: 'month'))),
+                  'Date Range\nReport',
+                  Icons.picture_as_pdf,
+                  Colors.deepPurple,
+                  _generateRangeReport,
                 ),
                 _buildReportTile(
                   "Today's\nDebit",
@@ -387,7 +387,6 @@ class _OwnerDashboardState extends State<OwnerDashboard> {
               ],
             ),
           ),
-
           // SEARCH BAR
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 4.0),
