@@ -322,7 +322,7 @@ class _PendingApprovalsScreenState extends State<PendingApprovalsScreen> {
                                     side: const BorderSide(color: Colors.teal),
                                   ),
                                   icon: const Icon(Icons.person_search, size: 18),
-                                  label: const Text('Choose Customer from List'),
+                                  label: const Text('Link By List'),
                                   onPressed: () => _linkToChosenCustomer(item),
                                 ),
                               ),
@@ -440,7 +440,7 @@ class _CustomerPickerDialogState extends State<_CustomerPickerDialog> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text('Choose a Customer', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                  const Text('Link By List — Select Customer', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                   if (widget.sheetName.isNotEmpty) ...[
                     const SizedBox(height: 4),
                     Text(

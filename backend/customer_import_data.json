@@ -1,912 +1,1650 @@
 [
   {
     "name": "saud bhai",
-    "amount": 54072.0,
-    "type": "udhaar"
+    "balance": 54511
   },
   {
     "name": "fayyaz uncle",
-    "amount": 663.0,
-    "type": "udhaar"
+    "balance": 663
   },
   {
     "name": "irtaza uncle son",
-    "amount": 37696.0,
-    "type": "udhaar"
+    "balance": 39616
   },
   {
     "name": "sufi jameel",
-    "amount": 47570.0,
-    "type": "udhaar"
+    "balance": 47570
   },
   {
     "name": "sadia baji",
-    "amount": 54016.0,
-    "type": "udhaar"
+    "balance": 54016
   },
   {
     "name": "mian akmal",
-    "amount": 27266.0,
-    "type": "udhaar"
+    "balance": 27266
   },
   {
     "name": "khawaja sb",
-    "amount": 11490.0,
-    "type": "udhaar"
+    "balance": 11490
+  },
+  {
+    "name": "160b",
+    "balance": 0
+  },
+  {
+    "name": "debit",
+    "balance": 0
   },
   {
     "name": "55a",
-    "amount": 9393.0,
-    "type": "udhaar"
+    "balance": 20053
+  },
+  {
+    "name": "146b",
+    "balance": 0
+  },
+  {
+    "name": "51b anti",
+    "balance": 0
+  },
+  {
+    "name": "351b",
+    "balance": 0
+  },
+  {
+    "name": "124a",
+    "balance": 0
+  },
+  {
+    "name": "abdurrehman anchor",
+    "balance": 0
   },
   {
     "name": "162b",
-    "amount": 15639.0,
-    "type": "udhaar"
+    "balance": 15639
   },
   {
     "name": "99b",
-    "amount": 17578.0,
-    "type": "udhaar"
+    "balance": 7578
   },
   {
     "name": "57a",
-    "amount": 201848.0,
-    "type": "udhaar"
+    "balance": 202084
+  },
+  {
+    "name": "344",
+    "balance": 0
   },
   {
     "name": "anas bhai",
-    "amount": 15737.0,
-    "type": "udhaar"
+    "balance": 15737
   },
   {
     "name": "alvi sahab",
-    "amount": 7738.0,
-    "type": "udhaar"
+    "balance": 15802
+  },
+  {
+    "name": "45a mian sami",
+    "balance": 0
   },
   {
     "name": "ali aziz mart",
-    "amount": 40288.0,
-    "type": "udhaar"
+    "balance": 40288
   },
   {
     "name": "125b dr salman",
-    "amount": 40.0,
-    "type": "udhaar"
+    "balance": 40
   },
   {
     "name": "asif sab puehs",
-    "amount": 40804.0,
-    "type": "udhaar"
+    "balance": 45004
+  },
+  {
+    "name": "192puehs",
+    "balance": 0
   },
   {
     "name": "26a",
-    "amount": 963.0,
-    "type": "udhaar"
+    "balance": 963
   },
   {
     "name": "malik munir",
-    "amount": 10540.0,
-    "type": "udhaar"
+    "balance": 10540
+  },
+  {
+    "name": "uncle rice",
+    "balance": 0
+  },
+  {
+    "name": "amir hayat",
+    "balance": 0
+  },
+  {
+    "name": "49b",
+    "balance": 0
   },
   {
     "name": "86b",
-    "amount": 5568.0,
-    "type": "udhaar"
+    "balance": 5568
+  },
+  {
+    "name": "112a",
+    "balance": 0
   },
   {
     "name": "hussain 75b",
-    "amount": 1.0,
-    "type": "udhaar"
+    "balance": 1
   },
   {
     "name": "103b",
-    "amount": 1560.0,
-    "type": "udhaar"
+    "balance": 1560
+  },
+  {
+    "name": "333b",
+    "balance": 0
   },
   {
     "name": "346b dr zaid",
-    "amount": 2359.0,
-    "type": "udhaar"
+    "balance": 2359
   },
   {
     "name": "safder butt",
-    "amount": 5658.0,
-    "type": "udhaar"
+    "balance": 5658
   },
   {
     "name": "40a",
-    "amount": 1000.0,
-    "type": "udhaar"
+    "balance": 2150
   },
   {
     "name": "51b amir sahab",
-    "amount": 25538.04,
-    "type": "udhaar"
+    "balance": 25538.04
+  },
+  {
+    "name": "76a",
+    "balance": 0
   },
   {
     "name": "azam uncle",
-    "amount": 3300.0,
-    "type": "udhaar"
+    "balance": 3300
   },
   {
     "name": "ashiq maali",
-    "amount": 340.0,
-    "type": "udhaar"
+    "balance": 340
+  },
+  {
+    "name": "162b neeche shoukat sb",
+    "balance": 660
   },
   {
     "name": "muhammad ali papa",
-    "amount": 35307.0,
-    "type": "udhaar"
+    "balance": 36027
   },
   {
     "name": "hanif 51b driver",
-    "amount": 2287.0,
-    "type": "udhaar"
+    "balance": 2287
   },
   {
     "name": "excise shop",
-    "amount": 10111.0,
-    "type": "udhaar"
+    "balance": 12409
+  },
+  {
+    "name": "larka excise",
+    "balance": 0
+  },
+  {
+    "name": "18a",
+    "balance": 0
   },
   {
     "name": "157b",
-    "amount": 16356.0,
-    "type": "udhaar"
+    "balance": 17626
   },
   {
     "name": "umar",
-    "amount": 18900.0,
-    "type": "udhaar"
+    "balance": 19565
+  },
+  {
+    "name": "85 excise",
+    "balance": 0
+  },
+  {
+    "name": "muhammad",
+    "balance": 0
   },
   {
     "name": "ali asghar 51b",
-    "amount": 14405.0,
-    "type": "udhaar"
+    "balance": 14405
   },
   {
     "name": "51b auranzaib",
-    "amount": 1780.0,
-    "type": "udhaar"
+    "balance": 1780
+  },
+  {
+    "name": "dr zahid",
+    "balance": 0
+  },
+  {
+    "name": "233b",
+    "balance": 0
+  },
+  {
+    "name": "dr ijaz",
+    "balance": 0
   },
   {
     "name": "79b",
-    "amount": 120.0,
-    "type": "udhaar"
+    "balance": 120
   },
   {
     "name": "322",
-    "amount": 36297.0,
-    "type": "udhaar"
+    "balance": 0
+  },
+  {
+    "name": "18 peace home",
+    "balance": 0
+  },
+  {
+    "name": "104b",
+    "balance": 0
   },
   {
     "name": "118b",
-    "amount": 60.0,
-    "type": "udhaar"
+    "balance": 60
+  },
+  {
+    "name": "dr khalida",
+    "balance": 0
+  },
+  {
+    "name": "zunair",
+    "balance": 0
+  },
+  {
+    "name": "mota baba",
+    "balance": 0
   },
   {
     "name": "113b",
-    "amount": 60.0,
-    "type": "udhaar"
+    "balance": 60
+  },
+  {
+    "name": "44a",
+    "balance": 0
   },
   {
     "name": "163b",
-    "amount": 320.0,
-    "type": "udhaar"
+    "balance": 0
+  },
+  {
+    "name": "kamboh sb",
+    "balance": 0
   },
   {
     "name": "taqi butt",
-    "amount": 25.0,
-    "type": "udhaar"
+    "balance": 25
+  },
+  {
+    "name": "196c",
+    "balance": 0
   },
   {
     "name": "bilal ahsan 90b",
-    "amount": 10.0,
-    "type": "udhaar"
+    "balance": 10
+  },
+  {
+    "name": "shakeel sunridge",
+    "balance": 0
   },
   {
     "name": "106b",
-    "amount": 11334.0,
-    "type": "udhaar"
+    "balance": 11334
+  },
+  {
+    "name": "51b",
+    "balance": 0
+  },
+  {
+    "name": "72b",
+    "balance": 0
+  },
+  {
+    "name": "hamiz",
+    "balance": 0
   },
   {
     "name": "318b sheez",
-    "amount": 50.0,
-    "type": "udhaar"
+    "balance": 50
   },
   {
     "name": "55b malik aizaz",
-    "amount": 14771.0,
-    "type": "udhaar"
+    "balance": 14771
+  },
+  {
+    "name": "qureshi sahib",
+    "balance": 0
+  },
+  {
+    "name": "87b",
+    "balance": 0
   },
   {
     "name": "qari tayyab",
-    "amount": 10499.0,
-    "type": "udhaar"
+    "balance": 2889
   },
   {
     "name": "naseer manj",
-    "amount": 1305.0,
-    "type": "udhaar"
+    "balance": 3445
   },
   {
     "name": "179",
-    "amount": 2.0,
-    "type": "udhaar"
+    "balance": 2
+  },
+  {
+    "name": "shahid munir",
+    "balance": 0
+  },
+  {
+    "name": "89b",
+    "balance": 0
+  },
+  {
+    "name": "khan",
+    "balance": 0
   },
   {
     "name": "mian usman",
-    "amount": 39037.0,
-    "type": "udhaar"
+    "balance": 39391
+  },
+  {
+    "name": "random customer",
+    "balance": 0
+  },
+  {
+    "name": "ahmad saeed cufc",
+    "balance": 0
+  },
+  {
+    "name": "rizwan",
+    "balance": 0
+  },
+  {
+    "name": "jabbar sb",
+    "balance": 0
+  },
+  {
+    "name": "azeem",
+    "balance": 0
+  },
+  {
+    "name": "syed haider imam",
+    "balance": 0
   },
   {
     "name": "287b",
-    "amount": 960.0,
-    "type": "udhaar"
+    "balance": 960
   },
   {
     "name": "khubaib",
-    "amount": 3723.0,
-    "type": "udhaar"
+    "balance": 3723
+  },
+  {
+    "name": "kamboh son",
+    "balance": 0
   },
   {
     "name": "240b",
-    "amount": 50.0,
-    "type": "udhaar"
+    "balance": 50
   },
   {
     "name": "puehs office",
-    "amount": 859.0,
-    "type": "udhaar"
+    "balance": 859
+  },
+  {
+    "name": "hammad tahir 55a",
+    "balance": 0
+  },
+  {
+    "name": "67b basharat",
+    "balance": 0
+  },
+  {
+    "name": "114a",
+    "balance": 0
   },
   {
     "name": "154b",
-    "amount": 40.0,
-    "type": "udhaar"
+    "balance": 40
+  },
+  {
+    "name": "glasses",
+    "balance": 0
   },
   {
     "name": "latif mali",
-    "amount": 1110.0,
-    "type": "udhaar"
+    "balance": 1110
   },
   {
     "name": "338b dr shafiq",
-    "amount": 1564.0,
-    "type": "udhaar"
+    "balance": 0
   },
   {
     "name": "westwood",
-    "amount": 30786.0,
-    "type": "udhaar"
+    "balance": 30786
+  },
+  {
+    "name": "313b",
+    "balance": 0
   },
   {
     "name": "132b",
-    "amount": 790.0,
-    "type": "udhaar"
+    "balance": 790
   },
   {
     "name": "hussain nawaz",
-    "amount": 455.0,
-    "type": "udhaar"
+    "balance": 455
+  },
+  {
+    "name": "kashana house",
+    "balance": 0
+  },
+  {
+    "name": "192b qaium sab",
+    "balance": 0
   },
   {
     "name": "68a",
-    "amount": 3450.0,
-    "type": "udhaar"
+    "balance": 3450
   },
   {
     "name": "189b",
-    "amount": 1340.0,
-    "type": "udhaar"
+    "balance": 1340
+  },
+  {
+    "name": "manzoor uncle son",
+    "balance": 0
   },
   {
     "name": "200b dsp farooq",
-    "amount": 625.0,
-    "type": "udhaar"
+    "balance": 625
+  },
+  {
+    "name": "42a",
+    "balance": 0
+  },
+  {
+    "name": "iqbal tractor mali",
+    "balance": 0
   },
   {
     "name": "hamza",
-    "amount": 720.0,
-    "type": "udhaar"
+    "balance": 720
   },
   {
     "name": "dewan",
-    "amount": 670.0,
-    "type": "udhaar"
+    "balance": 670
   },
   {
     "name": "85a",
-    "amount": 135.0,
-    "type": "udhaar"
+    "balance": 135
   },
   {
     "name": "ghazi bhai",
-    "amount": 185.0,
-    "type": "udhaar"
+    "balance": 185
+  },
+  {
+    "name": "ch akram 298b",
+    "balance": 98
   },
   {
     "name": "96b excise",
-    "amount": 1000.0,
-    "type": "udhaar"
+    "balance": 1000
+  },
+  {
+    "name": "62a",
+    "balance": 0
+  },
+  {
+    "name": "43b",
+    "balance": 0
+  },
+  {
+    "name": "30a",
+    "balance": 0
+  },
+  {
+    "name": "hamza shalmi",
+    "balance": 0
+  },
+  {
+    "name": "niazi guard",
+    "balance": 0
+  },
+  {
+    "name": "114b saleem sabir",
+    "balance": 0
   },
   {
     "name": "301b",
-    "amount": 16695.0,
-    "type": "udhaar"
+    "balance": 16975
   },
   {
-    "name": "58a",
-    "amount": 30.0,
-    "type": "udhaar"
+    "name": "56a",
+    "balance": 0
   },
   {
-    "name": "habib maali",
-    "amount": 6083.0,
-    "type": "udhaar"
+    "name": "guard",
+    "balance": 0
   },
   {
-    "name": "ahmad hassan saeed",
-    "amount": 210.0,
-    "type": "udhaar"
+    "name": "297b",
+    "balance": 0
   },
   {
-    "name": "30b",
-    "amount": 160.0,
-    "type": "udhaar"
-  },
-  {
-    "name": "muzammil malik",
-    "amount": 11493.0,
-    "type": "udhaar"
-  },
-  {
-    "name": "51b mushtaq",
-    "amount": 2185.0,
-    "type": "udhaar"
-  },
-  {
-    "name": "habib",
-    "amount": 60.0,
-    "type": "udhaar"
+    "name": "mehar sahib",
+    "balance": 0
   },
   {
     "name": "mirza",
-    "amount": 4976.0,
-    "type": "udhaar"
+    "balance": 0
   },
   {
-    "name": "23b",
-    "amount": 25431.0,
-    "type": "udhaar"
+    "name": "safder guard",
+    "balance": 0
   },
   {
-    "name": "yahya mobeen",
-    "amount": 400.0,
-    "type": "udhaar"
+    "name": "58a",
+    "balance": 30
   },
   {
-    "name": "shabir town flat",
-    "amount": 4865.0,
-    "type": "udhaar"
+    "name": "wakeel",
+    "balance": 0
   },
   {
-    "name": "lays",
-    "amount": 615.0,
-    "type": "udhaar"
+    "name": "habib maali",
+    "balance": 6083
   },
   {
-    "name": "325b",
-    "amount": 705.0,
-    "type": "udhaar"
+    "name": "287b worker",
+    "balance": 0
   },
   {
-    "name": "55b ground floor",
-    "amount": 10.0,
-    "type": "udhaar"
+    "name": "mehboob sultan sbdr",
+    "balance": 0
   },
   {
-    "name": "130b",
-    "amount": 8407.0,
-    "type": "udhaar"
+    "name": "hamara sajjad",
+    "balance": 0
   },
   {
-    "name": "226b",
-    "amount": 3.0,
-    "type": "udhaar"
+    "name": "ahmad hassan saeed",
+    "balance": 210
   },
   {
-    "name": "panjiri",
-    "amount": 17606.0,
-    "type": "udhaar"
+    "name": "waqas",
+    "balance": 0
   },
   {
-    "name": "adeel",
-    "amount": 35349.0,
-    "type": "udhaar"
-  },
-  {
-    "name": "asadullah 51b",
-    "amount": 1666.0,
-    "type": "udhaar"
-  },
-  {
-    "name": "usman peace home",
-    "amount": 33583.0,
-    "type": "udhaar"
-  },
-  {
-    "name": "183 excise",
-    "amount": 11600.0,
-    "type": "udhaar"
-  },
-  {
-    "name": "142a",
-    "amount": 2030.0,
-    "type": "udhaar"
-  },
-  {
-    "name": "169 excise",
-    "amount": 8760.0,
-    "type": "udhaar"
-  },
-  {
-    "name": "aziz store abdur rehman",
-    "amount": 27380.0,
-    "type": "udhaar"
-  },
-  {
-    "name": "43b rent",
-    "amount": 19415.0,
-    "type": "udhaar"
-  },
-  {
-    "name": "88a",
-    "amount": 14072.0,
-    "type": "udhaar"
-  },
-  {
-    "name": "71b",
-    "amount": 1470.0,
-    "type": "udhaar"
-  },
-  {
-    "name": "347b",
-    "amount": 160.0,
-    "type": "udhaar"
-  },
-  {
-    "name": "ibrahim 23b",
-    "amount": 460.0,
-    "type": "udhaar"
-  },
-  {
-    "name": "khizer guard",
-    "amount": 2362.0,
-    "type": "udhaar"
-  },
-  {
-    "name": "184b",
-    "amount": 50.0,
-    "type": "udhaar"
-  },
-  {
-    "name": "saifullah guard",
-    "amount": 14365.0,
-    "type": "udhaar"
-  },
-  {
-    "name": "maryam",
-    "amount": 1180.0,
-    "type": "udhaar"
-  },
-  {
-    "name": "afzal warraich",
-    "amount": 2770.0,
-    "type": "udhaar"
-  },
-  {
-    "name": "54b paracha",
-    "amount": 30.0,
-    "type": "udhaar"
-  },
-  {
-    "name": "yaseen khan",
-    "amount": 4610.0,
-    "type": "udhaar"
-  },
-  {
-    "name": "133b",
-    "amount": 4091.0,
-    "type": "udhaar"
-  },
-  {
-    "name": "57b",
-    "amount": 13998.0,
-    "type": "udhaar"
-  },
-  {
-    "name": "90b",
-    "amount": 1475.0,
-    "type": "udhaar"
-  },
-  {
-    "name": "moon bhai",
-    "amount": 8810.0,
-    "type": "udhaar"
-  },
-  {
-    "name": "345b rent",
-    "amount": 30.0,
-    "type": "udhaar"
-  },
-  {
-    "name": "asim 303b",
-    "amount": 13329.0,
-    "type": "udhaar"
-  },
-  {
-    "name": "asmatullah",
-    "amount": 20.0,
-    "type": "udhaar"
-  },
-  {
-    "name": "60b rent",
-    "amount": 460.0,
-    "type": "udhaar"
-  },
-  {
-    "name": "sohail sahib",
-    "amount": 5097.0,
-    "type": "udhaar"
-  },
-  {
-    "name": "tahir puehs",
-    "amount": 4430.0,
-    "type": "udhaar"
-  },
-  {
-    "name": "azan 341b",
-    "amount": 20.0,
-    "type": "udhaar"
-  },
-  {
-    "name": "326b ibrahim",
-    "amount": 800.0,
-    "type": "udhaar"
-  },
-  {
-    "name": "mian arsalan",
-    "amount": 6309.0,
-    "type": "udhaar"
-  },
-  {
-    "name": "307b",
-    "amount": 830.0,
-    "type": "udhaar"
-  },
-  {
-    "name": "salman 75b",
-    "amount": 3885.0,
-    "type": "udhaar"
-  },
-  {
-    "name": "67b rent",
-    "amount": 34628.0,
-    "type": "udhaar"
-  },
-  {
-    "name": "zumar",
-    "amount": 60.0,
-    "type": "udhaar"
-  },
-  {
-    "name": "yaseen butt",
-    "amount": 2535.0,
-    "type": "udhaar"
-  },
-  {
-    "name": "wafa sb",
-    "amount": 60.0,
-    "type": "udhaar"
-  },
-  {
-    "name": "94a",
-    "amount": 4000.0,
-    "type": "udhaar"
-  },
-  {
-    "name": "arham",
-    "amount": 1300.0,
-    "type": "udhaar"
-  },
-  {
-    "name": "ahmad bilal",
-    "amount": 120.0,
-    "type": "udhaar"
-  },
-  {
-    "name": "shokat",
-    "amount": 20.0,
-    "type": "udhaar"
-  },
-  {
-    "name": "dr khalid 121a",
-    "amount": 3435.0,
-    "type": "udhaar"
-  },
-  {
-    "name": "163 excise",
-    "amount": 1516.0,
-    "type": "udhaar"
-  },
-  {
-    "name": "raffay",
-    "amount": 200.0,
-    "type": "udhaar"
-  },
-  {
-    "name": "javed pyara",
-    "amount": 1220.0,
-    "type": "udhaar"
-  },
-  {
-    "name": "119b",
-    "amount": 1010.0,
-    "type": "udhaar"
-  },
-  {
-    "name": "shahid a block",
-    "amount": 40.0,
-    "type": "udhaar"
-  },
-  {
-    "name": "aleem",
-    "amount": 270.0,
-    "type": "udhaar"
-  },
-  {
-    "name": "hifza baji",
-    "amount": 7584.0,
-    "type": "udhaar"
-  },
-  {
-    "name": "shabir town kitchen",
-    "amount": 3185.0,
-    "type": "udhaar"
-  },
-  {
-    "name": "127a",
-    "amount": 140.0,
-    "type": "udhaar"
-  },
-  {
-    "name": "144b",
-    "amount": 360.0,
-    "type": "udhaar"
-  },
-  {
-    "name": "105a",
-    "amount": 7115.0,
-    "type": "udhaar"
-  },
-  {
-    "name": "hameed",
-    "amount": 1198.0,
-    "type": "udhaar"
-  },
-  {
-    "name": "rafi sb",
-    "amount": 42053.0,
-    "type": "udhaar"
-  },
-  {
-    "name": "157a",
-    "amount": 960.0,
-    "type": "udhaar"
-  },
-  {
-    "name": "asad e",
-    "amount": 7870.0,
-    "type": "udhaar"
-  },
-  {
-    "name": "sho",
-    "amount": 200.0,
-    "type": "udhaar"
-  },
-  {
-    "name": "46a",
-    "amount": 300.0,
-    "type": "udhaar"
-  },
-  {
-    "name": "mateen bhai",
-    "amount": 10000.0,
-    "type": "udhaar"
-  },
-  {
-    "name": "123b",
-    "amount": 30.0,
-    "type": "udhaar"
-  },
-  {
-    "name": "adnan sahib 193b",
-    "amount": 80.0,
-    "type": "udhaar"
-  },
-  {
-    "name": "66b",
-    "amount": 2279.0,
-    "type": "udhaar"
-  },
-  {
-    "name": "97b",
-    "amount": 495.0,
-    "type": "udhaar"
-  },
-  {
-    "name": "hammad tahir",
-    "amount": 70276.0,
-    "type": "udhaar"
-  },
-  {
-    "name": "meat shop",
-    "amount": 1320.0,
-    "type": "udhaar"
-  },
-  {
-    "name": "maqbool ahmed",
-    "amount": 140.0,
-    "type": "udhaar"
-  },
-  {
-    "name": "battery",
-    "amount": 4000.0,
-    "type": "udhaar"
-  },
-  {
-    "name": "339b",
-    "amount": 30.0,
-    "type": "udhaar"
-  },
-  {
-    "name": "mazya",
-    "amount": 110.0,
-    "type": "udhaar"
-  },
-  {
-    "name": "hair salon",
-    "amount": 470.0,
-    "type": "udhaar"
-  },
-  {
-    "name": "naseer store",
-    "amount": 1590.0,
-    "type": "udhaar"
-  },
-  {
-    "name": "egg",
-    "amount": 420.0,
-    "type": "udhaar"
-  },
-  {
-    "name": "nazim ali",
-    "amount": 3160.0,
-    "type": "udhaar"
-  },
-  {
-    "name": "cola next",
-    "amount": 40.0,
-    "type": "udhaar"
-  },
-  {
-    "name": "cafe",
-    "amount": 1119.0,
-    "type": "udhaar"
-  },
-  {
-    "name": "331b",
-    "amount": 400.0,
-    "type": "udhaar"
-  },
-  {
-    "name": "66a",
-    "amount": 75.0,
-    "type": "udhaar"
-  },
-  {
-    "name": "23a",
-    "amount": 2150.0,
-    "type": "udhaar"
-  },
-  {
-    "name": "132a",
-    "amount": 20.0,
-    "type": "udhaar"
-  },
-  {
-    "name": "furqan bhai",
-    "amount": 4450.0,
-    "type": "udhaar"
-  },
-  {
-    "name": "ajmal",
-    "amount": 7820.0,
-    "type": "udhaar"
-  },
-  {
-    "name": "206b",
-    "amount": 50.0,
-    "type": "udhaar"
-  },
-  {
-    "name": "94b",
-    "amount": 28802.0,
-    "type": "udhaar"
-  },
-  {
-    "name": "334b",
-    "amount": 40.0,
-    "type": "udhaar"
-  },
-  {
-    "name": "67a",
-    "amount": 2.0,
-    "type": "udhaar"
-  },
-  {
-    "name": "35a",
-    "amount": 60.0,
-    "type": "udhaar"
-  },
-  {
-    "name": "348b",
-    "amount": 328.0,
-    "type": "udhaar"
-  },
-  {
-    "name": "190b",
-    "amount": 80.0,
-    "type": "udhaar"
-  },
-  {
-    "name": "116b",
-    "amount": 1360.0,
-    "type": "udhaar"
-  },
-  {
-    "name": "alam saeed",
-    "amount": 780.0,
-    "type": "udhaar"
-  },
-  {
-    "name": "makhdom",
-    "amount": 680.0,
-    "type": "udhaar"
-  },
-  {
-    "name": "muzammil khan",
-    "amount": 835.0,
-    "type": "udhaar"
-  },
-  {
-    "name": "173b",
-    "amount": 18.0,
-    "type": "udhaar"
+    "name": "safder dawn",
+    "balance": 0
   },
   {
     "name": "30b",
-    "amount": 230.0,
-    "type": "udhaar"
+    "balance": 160
+  },
+  {
+    "name": "181b",
+    "balance": 0
+  },
+  {
+    "name": "gondal college",
+    "balance": 0
+  },
+  {
+    "name": "muzammil malik",
+    "balance": 11493
+  },
+  {
+    "name": "owner 345b",
+    "balance": 0
+  },
+  {
+    "name": "excise ainak",
+    "balance": 0
+  },
+  {
+    "name": "51b mushtaq",
+    "balance": 1185
+  },
+  {
+    "name": "habib",
+    "balance": 90
+  },
+  {
+    "name": "mirza",
+    "balance": 4976
+  },
+  {
+    "name": "youngs",
+    "balance": 0
+  },
+  {
+    "name": "23b",
+    "balance": 25431
+  },
+  {
+    "name": "awais 184b",
+    "balance": 0
+  },
+  {
+    "name": "subhan",
+    "balance": 0
+  },
+  {
+    "name": "yahya mobeen",
+    "balance": 400
+  },
+  {
+    "name": "bunny's",
+    "balance": 0
+  },
+  {
+    "name": "shabir town flat",
+    "balance": 4865
+  },
+  {
+    "name": "tooran khan 73b",
+    "balance": 0
+  },
+  {
+    "name": "300b abdul qadir",
+    "balance": 0
+  },
+  {
+    "name": "lays",
+    "balance": 615
+  },
+  {
+    "name": "baba bike",
+    "balance": 0
+  },
+  {
+    "name": "325b",
+    "balance": 1045
+  },
+  {
+    "name": "olpers",
+    "balance": 0
+  },
+  {
+    "name": "mian asif",
+    "balance": 0
+  },
+  {
+    "name": "aunty a block",
+    "balance": 0
+  },
+  {
+    "name": "55b ground floor",
+    "balance": 10
+  },
+  {
+    "name": "130b",
+    "balance": 250
+  },
+  {
+    "name": "226b",
+    "balance": 3
+  },
+  {
+    "name": "398b owner",
+    "balance": 0
+  },
+  {
+    "name": "51b ahmad",
+    "balance": 0
+  },
+  {
+    "name": "panjiri",
+    "balance": 17606
+  },
+  {
+    "name": "adeel",
+    "balance": 35349
+  },
+  {
+    "name": "usman ibrahim",
+    "balance": 0
+  },
+  {
+    "name": "farooq butt",
+    "balance": 0
+  },
+  {
+    "name": "55a baji",
+    "balance": 0
+  },
+  {
+    "name": "asadullah 51b",
+    "balance": 1666
+  },
+  {
+    "name": "afreen sahib excise",
+    "balance": 0
+  },
+  {
+    "name": "mukhtiar",
+    "balance": 0
+  },
+  {
+    "name": "usman peace home",
+    "balance": 33583
+  },
+  {
+    "name": "183 excise",
+    "balance": 11600
+  },
+  {
+    "name": "panjiri stock",
+    "balance": 0
+  },
+  {
+    "name": "prema stock",
+    "balance": 0
+  },
+  {
+    "name": "cloth house",
+    "balance": 0
+  },
+  {
+    "name": "142a",
+    "balance": 2030
+  },
+  {
+    "name": "230b",
+    "balance": 0
+  },
+  {
+    "name": "dr maqsood",
+    "balance": 0
+  },
+  {
+    "name": "169 excise",
+    "balance": 8760
+  },
+  {
+    "name": "178a",
+    "balance": 0
+  },
+  {
+    "name": "aziz store abdur rehman",
+    "balance": 27380
+  },
+  {
+    "name": "51b shafiq",
+    "balance": 0
+  },
+  {
+    "name": "43b rent",
+    "balance": 19850
+  },
+  {
+    "name": "27a",
+    "balance": 0
+  },
+  {
+    "name": "hassan chattha",
+    "balance": 0
+  },
+  {
+    "name": "shahzaib 51b",
+    "balance": 0
+  },
+  {
+    "name": "mian manzoor",
+    "balance": 0
+  },
+  {
+    "name": "qari mudassir",
+    "balance": 0
+  },
+  {
+    "name": "condom",
+    "balance": 0
+  },
+  {
+    "name": "police",
+    "balance": 0
+  },
+  {
+    "name": "48a",
+    "balance": 0
+  },
+  {
+    "name": "88a",
+    "balance": 18869
+  },
+  {
+    "name": "egg",
+    "balance": 0
+  },
+  {
+    "name": "anas bhai opf",
+    "balance": 0
+  },
+  {
+    "name": "71b",
+    "balance": 1470
+  },
+  {
+    "name": "199b",
+    "balance": 0
+  },
+  {
+    "name": "26b",
+    "balance": 0
+  },
+  {
+    "name": "adnan",
+    "balance": 0
+  },
+  {
+    "name": "sabir uncle",
+    "balance": 0
+  },
+  {
+    "name": "347b",
+    "balance": 160
+  },
+  {
+    "name": "ibrahim 23b",
+    "balance": 460
+  },
+  {
+    "name": "khizer guard",
+    "balance": 2362
+  },
+  {
+    "name": "184b",
+    "balance": 50
+  },
+  {
+    "name": "61b",
+    "balance": 0
+  },
+  {
+    "name": "135b",
+    "balance": 0
+  },
+  {
+    "name": "farmhouse",
+    "balance": 0
+  },
+  {
+    "name": "73b rent",
+    "balance": 0
+  },
+  {
+    "name": "doctor",
+    "balance": 0
+  },
+  {
+    "name": "abubaker",
+    "balance": 0
+  },
+  {
+    "name": "saifullah guard",
+    "balance": 14365
+  },
+  {
+    "name": "maryam",
+    "balance": 1180
+  },
+  {
+    "name": "asjad",
+    "balance": 0
+  },
+  {
+    "name": "afzal warraich",
+    "balance": 2770
+  },
+  {
+    "name": "54b paracha",
+    "balance": 30
+  },
+  {
+    "name": "193b",
+    "balance": 0
+  },
+  {
+    "name": "337b",
+    "balance": 0
+  },
+  {
+    "name": "yaseen khan",
+    "balance": 4610
+  },
+  {
+    "name": "52b",
+    "balance": 0
+  },
+  {
+    "name": "133b",
+    "balance": 0
+  },
+  {
+    "name": "57b",
+    "balance": 13998
+  },
+  {
+    "name": "90b",
+    "balance": 1475
+  },
+  {
+    "name": "moon bhai",
+    "balance": 8010
+  },
+  {
+    "name": "345b rent",
+    "balance": 30
+  },
+  {
+    "name": "asim 303b",
+    "balance": 13329
+  },
+  {
+    "name": "163b",
+    "balance": 0
+  },
+  {
+    "name": "asmatullah",
+    "balance": 20
+  },
+  {
+    "name": "6 excise",
+    "balance": 0
+  },
+  {
+    "name": "60b rent",
+    "balance": 510
+  },
+  {
+    "name": "sohail sahib",
+    "balance": 5097
+  },
+  {
+    "name": "umair bhai",
+    "balance": 0
+  },
+  {
+    "name": "tahir puehs",
+    "balance": 4430
+  },
+  {
+    "name": "azan 341b",
+    "balance": 20
+  },
+  {
+    "name": "183a",
+    "balance": 0
+  },
+  {
+    "name": "aunty",
+    "balance": 0
+  },
+  {
+    "name": "goldleaf",
+    "balance": 0
+  },
+  {
+    "name": "326b ibrahim",
+    "balance": 800
+  },
+  {
+    "name": "mian arsalan",
+    "balance": 6679
+  },
+  {
+    "name": "114b rent",
+    "balance": 0
+  },
+  {
+    "name": "307b",
+    "balance": 0
+  },
+  {
+    "name": "73b",
+    "balance": 1280
+  },
+  {
+    "name": "salman 75b",
+    "balance": 3885
+  },
+  {
+    "name": "shawwal",
+    "balance": 0
+  },
+  {
+    "name": "qari sb",
+    "balance": 0
+  },
+  {
+    "name": "67b rent",
+    "balance": 40391
+  },
+  {
+    "name": "hafiz shahzad",
+    "balance": 0
+  },
+  {
+    "name": "zumar",
+    "balance": 60
+  },
+  {
+    "name": "221b",
+    "balance": 0
+  },
+  {
+    "name": "86a",
+    "balance": 0
+  },
+  {
+    "name": "yaseen butt",
+    "balance": 2535
+  },
+  {
+    "name": "wafa sb",
+    "balance": 60
+  },
+  {
+    "name": "94a",
+    "balance": 4000
+  },
+  {
+    "name": "sabzi",
+    "balance": 0
+  },
+  {
+    "name": "dr shafiq",
+    "balance": 0
+  },
+  {
+    "name": "arham",
+    "balance": 1300
+  },
+  {
+    "name": "ahmad bilal",
+    "balance": 120
+  },
+  {
+    "name": "haji sadiq sb",
+    "balance": 0
+  },
+  {
+    "name": "shokat",
+    "balance": 20
+  },
+  {
+    "name": "dr khalid 121a",
+    "balance": 3435
+  },
+  {
+    "name": "183b",
+    "balance": 0
+  },
+  {
+    "name": "bilal a block",
+    "balance": 0
+  },
+  {
+    "name": "alvi uncle rent",
+    "balance": 0
+  },
+  {
+    "name": "sultan",
+    "balance": 0
+  },
+  {
+    "name": "nadeem",
+    "balance": 0
+  },
+  {
+    "name": "163a",
+    "balance": 0
+  },
+  {
+    "name": "82b",
+    "balance": 0
+  },
+  {
+    "name": "30a",
+    "balance": 0
+  },
+  {
+    "name": "talal",
+    "balance": 0
+  },
+  {
+    "name": "231b",
+    "balance": 0
+  },
+  {
+    "name": "163 excise",
+    "balance": 1516
+  },
+  {
+    "name": "182b",
+    "balance": 0
+  },
+  {
+    "name": "186b ashfaq",
+    "balance": 0
+  },
+  {
+    "name": "shakeel guard",
+    "balance": 0
+  },
+  {
+    "name": "raffay",
+    "balance": 200
+  },
+  {
+    "name": "new home",
+    "balance": 0
+  },
+  {
+    "name": "javed pyara",
+    "balance": 1220
+  },
+  {
+    "name": "major uncle",
+    "balance": 0
+  },
+  {
+    "name": "maher uncle",
+    "balance": 0
+  },
+  {
+    "name": "119b",
+    "balance": 1010
+  },
+  {
+    "name": "90b rent",
+    "balance": 0
+  },
+  {
+    "name": "shahid a block",
+    "balance": 40
+  },
+  {
+    "name": "74a",
+    "balance": 0
+  },
+  {
+    "name": "judge uncle",
+    "balance": 0
+  },
+  {
+    "name": "bashir sb guard",
+    "balance": 0
+  },
+  {
+    "name": "rehan athar",
+    "balance": 0
+  },
+  {
+    "name": "aleem",
+    "balance": 270
+  },
+  {
+    "name": "236b",
+    "balance": 0
+  },
+  {
+    "name": "talib",
+    "balance": 0
+  },
+  {
+    "name": "hifza baji",
+    "balance": 2570
+  },
+  {
+    "name": "shabir town kitchen",
+    "balance": 4975
+  },
+  {
+    "name": "113a",
+    "balance": 0
+  },
+  {
+    "name": "cup toilet",
+    "balance": 0
+  },
+  {
+    "name": "bilal farooq",
+    "balance": 0
+  },
+  {
+    "name": "127a",
+    "balance": 140
+  },
+  {
+    "name": "doctor 3 house",
+    "balance": 0
+  },
+  {
+    "name": "237b",
+    "balance": 0
+  },
+  {
+    "name": "144b",
+    "balance": 360
+  },
+  {
+    "name": "105a",
+    "balance": 7115
+  },
+  {
+    "name": "hameed",
+    "balance": 1198
+  },
+  {
+    "name": "rafi sb",
+    "balance": 42053
+  },
+  {
+    "name": "157a",
+    "balance": 960
+  },
+  {
+    "name": "asad e",
+    "balance": 7870
+  },
+  {
+    "name": "sho",
+    "balance": 200
+  },
+  {
+    "name": "46a",
+    "balance": 300
+  },
+  {
+    "name": "114",
+    "balance": 0
+  },
+  {
+    "name": "98b dr khalid",
+    "balance": 0
+  },
+  {
+    "name": "mateen bhai",
+    "balance": 10000
+  },
+  {
+    "name": "71b rent",
+    "balance": 0
+  },
+  {
+    "name": "205b ibrahim",
+    "balance": 0
+  },
+  {
+    "name": "sabzi society",
+    "balance": 0
+  },
+  {
+    "name": "123b",
+    "balance": 30
+  },
+  {
+    "name": "khurram saeed",
+    "balance": 0
+  },
+  {
+    "name": "zain",
+    "balance": 0
+  },
+  {
+    "name": "adnan sahib 193b",
+    "balance": 80
+  },
+  {
+    "name": "hafiz naeem",
+    "balance": 0
+  },
+  {
+    "name": "301b rent",
+    "balance": 0
+  },
+  {
+    "name": "66b",
+    "balance": 1109
+  },
+  {
+    "name": "sid bhai friend",
+    "balance": 0
+  },
+  {
+    "name": "350b",
+    "balance": 0
+  },
+  {
+    "name": "walls",
+    "balance": 0
+  },
+  {
+    "name": "fakhir marghoob",
+    "balance": 0
+  },
+  {
+    "name": "nawaz guard",
+    "balance": 0
+  },
+  {
+    "name": "139b",
+    "balance": 0
+  },
+  {
+    "name": "18a",
+    "balance": 0
+  },
+  {
+    "name": "97b",
+    "balance": 495
+  },
+  {
+    "name": "shahmeer 114b",
+    "balance": 0
+  },
+  {
+    "name": "128b",
+    "balance": 0
+  },
+  {
+    "name": "masjid",
+    "balance": 0
+  },
+  {
+    "name": "hammad tahir",
+    "balance": 70276
+  },
+  {
+    "name": "meat shop",
+    "balance": 470
+  },
+  {
+    "name": "maqbool ahmed",
+    "balance": 140
+  },
+  {
+    "name": "battery",
+    "balance": 4000
+  },
+  {
+    "name": "339b",
+    "balance": 30
+  },
+  {
+    "name": "mazya",
+    "balance": 110
+  },
+  {
+    "name": "204b",
+    "balance": 0
+  },
+  {
+    "name": "hair salon",
+    "balance": 470
+  },
+  {
+    "name": "naseer store",
+    "balance": 1590
+  },
+  {
+    "name": "egg",
+    "balance": 420
+  },
+  {
+    "name": "young boy",
+    "balance": 0
+  },
+  {
+    "name": "judge uncle",
+    "balance": 0
+  },
+  {
+    "name": "144a",
+    "balance": 0
+  },
+  {
+    "name": "nazim ali",
+    "balance": 3160
+  },
+  {
+    "name": "219b",
+    "balance": 0
+  },
+  {
+    "name": "cola next",
+    "balance": 40
+  },
+  {
+    "name": "cafe",
+    "balance": 1119
+  },
+  {
+    "name": "331b",
+    "balance": 400
+  },
+  {
+    "name": "107a",
+    "balance": 0
+  },
+  {
+    "name": "ahmad bhai 78b",
+    "balance": 0
+  },
+  {
+    "name": "66a",
+    "balance": 75
+  },
+  {
+    "name": "23a",
+    "balance": 2150
+  },
+  {
+    "name": "132a",
+    "balance": 20
+  },
+  {
+    "name": "town 2",
+    "balance": 500
+  },
+  {
+    "name": "furqan bhai",
+    "balance": 4450
+  },
+  {
+    "name": "ajmal",
+    "balance": 7820
+  },
+  {
+    "name": "89a",
+    "balance": 0
+  },
+  {
+    "name": "tariq jaleel",
+    "balance": 0
+  },
+  {
+    "name": "bara qari",
+    "balance": 0
+  },
+  {
+    "name": "99a",
+    "balance": 0
+  },
+  {
+    "name": "37b",
+    "balance": 0
+  },
+  {
+    "name": "206b",
+    "balance": 50
+  },
+  {
+    "name": "125b rent",
+    "balance": 0
+  },
+  {
+    "name": "94b",
+    "balance": 29792
+  },
+  {
+    "name": "muhammad",
+    "balance": 0
+  },
+  {
+    "name": "56b",
+    "balance": 0
+  },
+  {
+    "name": "64a",
+    "balance": 0
+  },
+  {
+    "name": "capstan",
+    "balance": 0
+  },
+  {
+    "name": "ahmad ali",
+    "balance": 0
+  },
+  {
+    "name": "334b",
+    "balance": 40
+  },
+  {
+    "name": "a1",
+    "balance": 0
+  },
+  {
+    "name": "67a",
+    "balance": 2
+  },
+  {
+    "name": "35a",
+    "balance": 60
+  },
+  {
+    "name": "348b",
+    "balance": 22
+  },
+  {
+    "name": "135a",
+    "balance": 0
+  },
+  {
+    "name": "sheikh nadeem",
+    "balance": 0
+  },
+  {
+    "name": "arsalan 24b",
+    "balance": 0
+  },
+  {
+    "name": "190b",
+    "balance": 80
+  },
+  {
+    "name": "20 excise",
+    "balance": 0
+  },
+  {
+    "name": "note",
+    "balance": 0
+  },
+  {
+    "name": "33b",
+    "balance": 0
+  },
+  {
+    "name": "shah guard",
+    "balance": 0
+  },
+  {
+    "name": "116b",
+    "balance": 1360
+  },
+  {
+    "name": "304b",
+    "balance": 0
+  },
+  {
+    "name": "152b",
+    "balance": 0
+  },
+  {
+    "name": "311b",
+    "balance": 0
+  },
+  {
+    "name": "31b",
+    "balance": 0
+  },
+  {
+    "name": "on",
+    "balance": 0
+  },
+  {
+    "name": "155 excise",
+    "balance": 0
+  },
+  {
+    "name": "alam saeed",
+    "balance": 780
+  },
+  {
+    "name": "156a",
+    "balance": 0
+  },
+  {
+    "name": "makhdom",
+    "balance": 0
+  },
+  {
+    "name": "dry clean",
+    "balance": 0
+  },
+  {
+    "name": "muzammil khan",
+    "balance": 835
+  },
+  {
+    "name": "lums deen",
+    "balance": 0
+  },
+  {
+    "name": "ubair haripur",
+    "balance": 0
+  },
+  {
+    "name": "173b",
+    "balance": 18
+  },
+  {
+    "name": "30b",
+    "balance": 230
   },
   {
     "name": "fayyaz 73b rent",
-    "amount": 100.0,
-    "type": "udhaar"
+    "balance": 100
   },
   {
     "name": "house 1a block",
-    "amount": 200.0,
-    "type": "udhaar"
+    "balance": 200
+  },
+  {
+    "name": "khalid sahib b type flat",
+    "balance": 0
   }
 ]

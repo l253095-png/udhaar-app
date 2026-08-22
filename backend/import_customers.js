@@ -1,59 +1,57 @@
-// Imports customers with their opening balances from customer_import_data.json
-// (generated from the shop's Excel export). Each customer gets one opening
-// transaction so the balance has a visible origin in their history.
-//
-// Run from the backend folder, AFTER reset_data.js:
-//   node import_customers.js
-
 const fs = require('fs');
 const path = require('path');
-const { db, initDb } = require('./config/db');
-const { nowLocal } = require('./config/timeHelper');
+const { db } = require('./config/db');
 
-const entries = JSON.parse(fs.readFileSync(path.join(__dirname, 'customer_import_data.json'), 'utf-8'));
-
-(async () => {
-  await initDb();
-
-  const tx = await db.transaction('write');
-  let count = 0;
+async function runCorrectImport() {
   try {
-    for (const entry of entries) {
-      // Wasooli entries mean the customer overpaid / is owed money back,
-      // so their balance starts negative.
-      const startingBalance = entry.type === 'wasooli' ? -entry.amount : entry.amount;
-      const now = nowLocal();
-
-      const info = await tx.execute({
-        sql: 'INSERT INTO customers (name, phone, balance, created_at) VALUES (?, NULL, ?, ?)',
-        args: [entry.name, startingBalance, now],
-      });
-      const customerId = Number(info.lastInsertRowid);
-
-      await tx.execute({
-        sql: `INSERT INTO transactions (customer_id, type, amount, note, source, created_at)
-              VALUES (?, ?, ?, 'Opening balance (imported)', 'import', ?)`,
-        args: [customerId, entry.type, entry.amount, now],
-      });
-      count++;
+    const dataPath = path.join(__dirname, 'customer_import_data.json');
+    if (!fs.existsSync(dataPath)) {
+      console.error('Error: customer_import_data.json file nahi mili!');
+      return;
     }
-    await tx.commit();
-  } catch (e) {
-    await tx.rollback();
-    throw e;
+
+    const entries = JSON.parse(fs.readFileSync(dataPath, 'utf-8'));
+
+    console.log('Purana data saaf kiya ja raha hai...');
+    await db.execute('DELETE FROM transactions');
+    await db.execute('DELETE FROM customers');
+
+    let imported = 0;
+    let totalBalance = 0;
+
+    console.log('Asli data import ho raha hai...');
+
+    for (const entry of entries) {
+      const balance = entry.balance || 0;
+
+      // 1. Customer insert karein
+      const customerResult = await db.execute({
+        sql: 'INSERT INTO customers (name, phone, balance) VALUES (?, NULL, ?)',
+        args: [entry.name, balance]
+      });
+
+      const customerId = Number(customerResult.lastInsertRowid);
+
+      // 2. Agar balance 0 nahi hai toh transaction insert karein (Sahi order: customerId, txnType, amount)
+      if (balance !== 0) {
+        const txnType = balance > 0 ? 'udhaar' : 'wasooli';
+        await db.execute({
+          sql: `INSERT INTO transactions (customer_id, type, amount, note, source) VALUES (?, ?, ?, 'Opening balance (corrected data)', 'import')`,
+          args: [customerId, txnType, Math.abs(balance)]
+        });
+      }
+
+      totalBalance += balance;
+      imported++;
+    }
+
+    console.log(`\nImport successfully mukammal ho gayi!`);
+    console.log(`Total Customers added: ${imported}`);
+    console.log(`Total Balance Amount: Rs ${totalBalance.toLocaleString()}`);
+
+  } catch (error) {
+    console.error('Import ke dauran error aa gaya:', error);
   }
+}
 
-  const udhaar = entries.filter((e) => e.type === 'udhaar').reduce((s, e) => s + e.amount, 0);
-  const wasooli = entries.filter((e) => e.type === 'wasooli').reduce((s, e) => s + e.amount, 0);
-
-  console.log(`\nImport complete!`);
-  console.log(`Customers added: ${count}`);
-  console.log(`Total Udhaar (owed to shop): Rs ${udhaar.toLocaleString('en-US', { minimumFractionDigits: 2 })}`);
-  console.log(`Total Wasooli (paid back/advance): Rs ${wasooli.toLocaleString('en-US', { minimumFractionDigits: 2 })}`);
-  console.log(`\nEach customer's phone number is empty — add it later via Edit`);
-  console.log(`if you want WhatsApp reminders to work for them.`);
-  process.exit(0);
-})().catch((err) => {
-  console.error('Import failed:', err);
-  process.exit(1);
-});
+runCorrectImport();
