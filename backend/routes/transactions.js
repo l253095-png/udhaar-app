@@ -2,6 +2,7 @@ const express = require('express');
 const { db } = require('../config/db');
 const { authenticate, ownerOnly } = require('../middleware/auth');
 const PDFDocument = require('pdfkit');
+const { logAudit } = require('../utils/auditLog');
 const router = express.Router();
 router.use(authenticate);
 
@@ -99,7 +100,15 @@ router.post('/', ownerOnly, async (req, res) => {
     });
     const updatedCustomer = updatedCustResult.rows[0];
     
-    notifyCustomer(customer, type, amount, updatedCustomer.balance);
+        notifyCustomer(customer, type, amount, updatedCustomer.balance);
+
+    await logAudit(
+      'transaction',
+      id,
+      'create',
+      `${type === 'udhaar' ? 'Debit' : 'Credit'} of Rs ${amount} added for "${customer.name}"`,
+      req.user.id
+    );
 
     res.status(201).json({ id, message: 'Transaction recorded' });
   } catch (error) {
@@ -128,7 +137,7 @@ router.put('/:id', ownerOnly, async (req, res) => {
     const oldEffect = txn.type === 'udhaar' ? -txn.amount : txn.amount; // undo old
     const newEffect = newType === 'udhaar' ? newAmount : -newAmount; // apply new
 
-    await db.batch([
+        await db.batch([
       {
         sql: 'UPDATE customers SET balance = balance + ? WHERE id = ?',
         args: [oldEffect, txn.customer_id]
@@ -142,6 +151,14 @@ router.put('/:id', ownerOnly, async (req, res) => {
         args: [newEffect, txn.customer_id]
       }
     ]);
+
+    await logAudit(
+      'transaction',
+      req.params.id,
+      'update',
+      `Transaction edited: ${txn.type} Rs ${txn.amount} -> ${newType} Rs ${newAmount}`,
+      req.user.id
+    );
 
     res.json({ message: 'Transaction updated' });
   } catch (error) {
@@ -162,7 +179,7 @@ router.delete('/:id', ownerOnly, async (req, res) => {
 
     const balanceChange = txn.type === 'udhaar' ? -txn.amount : txn.amount;
 
-    await db.batch([
+        await db.batch([
       {
         sql: 'DELETE FROM transactions WHERE id = ?',
         args: [req.params.id]
@@ -172,6 +189,14 @@ router.delete('/:id', ownerOnly, async (req, res) => {
         args: [balanceChange, txn.customer_id]
       }
     ]);
+
+    await logAudit(
+      'transaction',
+      req.params.id,
+      'delete',
+      `Transaction deleted: ${txn.type} Rs ${txn.amount}`,
+      req.user.id
+    );
 
     res.json({ message: 'Transaction deleted and balance adjusted' });
   } catch (error) {

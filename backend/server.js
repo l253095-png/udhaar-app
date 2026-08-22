@@ -21,7 +21,7 @@ const transactionRoutes = require('./routes/transactions');
 const sheetsSyncRoutes = require('./routes/sheetsSync');
 const expensesRoutes = require('./routes/expenses');
 const publicHistoryRoutes = require('./routes/publicHistory');
-
+const auditLogRoutes = require('./routes/auditLog'); 
 const path = require('path');
 
 const app = express();
@@ -35,7 +35,7 @@ app.use('/api/transactions', transactionRoutes);
 app.use('/api/sheets-sync', sheetsSyncRoutes);
 app.use('/api/expenses', expensesRoutes);
 app.use('/public/history', publicHistoryRoutes);
-
+app.use('/api/audit-log', auditLogRoutes); 
 // Serve Flutter Web release build statically
 const webBuildPath = path.join(__dirname, '../frontend/build/web');
 app.use(express.static(webBuildPath));

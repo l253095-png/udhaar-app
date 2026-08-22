@@ -120,6 +120,16 @@ async function initDb() {
       created_at TEXT DEFAULT (datetime('now', 'localtime')),
       FOREIGN KEY (customer_id) REFERENCES customers(id)
     );
+        CREATE TABLE IF NOT EXISTS audit_log (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      entity_type TEXT NOT NULL,
+      entity_id INTEGER,
+      action TEXT NOT NULL,
+      description TEXT,
+      performed_by INTEGER,
+      created_at TEXT DEFAULT (datetime('now', 'localtime')),
+      FOREIGN KEY (performed_by) REFERENCES users(id)
+    );
   `);
 
   // ---- Lightweight migrations ----

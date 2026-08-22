@@ -2,6 +2,7 @@ const express = require('express');
 const { db } = require('../config/db');
 const { authenticate, ownerOnly } = require('../middleware/auth');
 const crypto = require('crypto');
+const { logAudit } = require('../utils/auditLog');
 const router = express.Router();
 router.use(authenticate); // all customer routes require login
 
@@ -83,7 +84,9 @@ router.post('/', ownerOnly, async (req, res) => {
       args: [name, phone]
     });
 
-    res.status(201).json({ id: Number(info.lastInsertRowid), name, phone, balance: 0 });
+        const newId = Number(info.lastInsertRowid);
+    await logAudit('customer', newId, 'create', `Customer "${name}" created (phone: ${phone})`, req.user.id);
+    res.status(201).json({ id: newId, name, phone, balance: 0 });
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: 'Server error creating customer' });
@@ -101,10 +104,18 @@ router.put('/:id', ownerOnly, async (req, res) => {
     const existing = existResult.rows[0];
     if (!existing) return res.status(404).json({ error: 'Customer not found' });
 
-    await db.execute({
+        await db.execute({
       sql: 'UPDATE customers SET name = ?, phone = ? WHERE id = ?',
       args: [name || existing.name, phone || existing.phone, req.params.id]
     });
+
+    await logAudit(
+      'customer',
+      req.params.id,
+      'update',
+      `Customer "${existing.name}" edited: name "${existing.name}" -> "${name || existing.name}", phone "${existing.phone}" -> "${phone || existing.phone}"`,
+      req.user.id
+    );
 
     res.json({ message: 'Customer updated' });
   } catch (error) {
@@ -127,10 +138,12 @@ router.delete('/:id', ownerOnly, async (req, res) => {
       sql: 'DELETE FROM transactions WHERE customer_id = ?',
       args: [req.params.id]
     });
-    await db.execute({
+      await db.execute({
       sql: 'DELETE FROM customers WHERE id = ?',
       args: [req.params.id]
     });
+
+    await logAudit('customer', req.params.id, 'delete', `Customer "${existing.name}" deleted (balance was Rs ${existing.balance})`, req.user.id);
 
     res.json({ message: 'Customer deleted' });
   } catch (error) {
