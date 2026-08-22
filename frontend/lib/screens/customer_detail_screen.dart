@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../services/api_service.dart';
-
+import '../widgets/animated_balance_text.dart';
 /// Shows one customer's balance + full transaction history.
 /// If [readOnly] is true (Worker), the Credit/Debit buttons are hidden.
 class CustomerDetailScreen extends StatefulWidget {
@@ -322,8 +322,8 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
                 children: [
                   Text(_customer!['phone'] ?? 'No phone', style: const TextStyle(color: Colors.grey)),
                   const SizedBox(height: 8),
-                  Text(
-                    'Rs ${balance.abs().toStringAsFixed(0)}',
+                                    AnimatedBalanceText(
+                    value: balance.abs(),
                     style: TextStyle(
                       fontSize: 32,
                       fontWeight: FontWeight.bold,

@@ -5,6 +5,8 @@ import 'add_customer_screen.dart';
 import 'customer_detail_screen.dart';
 import 'transaction_report_screen.dart';
 import 'audit_history_screen.dart';
+import '../widgets/signboard_title.dart';
+import '../widgets/animated_balance_text.dart';
 class OwnerDashboard extends StatefulWidget {
   const OwnerDashboard({super.key});
 
@@ -311,7 +313,7 @@ class _OwnerDashboardState extends State<OwnerDashboard> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Udhaar System'),
+        title: const SignboardTitle('bhenchodon ka khata'),
         actions: [
            IconButton(
             icon: const Icon(Icons.history),
@@ -494,8 +496,8 @@ class _OwnerDashboardState extends State<OwnerDashboard> {
                               trailing: Row(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
-                                  Text(
-                                    'Rs ${balance.toStringAsFixed(0)}',
+                                                                    AnimatedBalanceText(
+                                    value: balance,
                                     style: TextStyle(
                                       fontWeight: FontWeight.bold,
                                       fontSize: 15,
