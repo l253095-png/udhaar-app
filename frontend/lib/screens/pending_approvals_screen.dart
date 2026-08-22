@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import '../services/api_service.dart';
-
+import '../theme/app_colors.dart';
 class PendingApprovalsScreen extends StatefulWidget {
   const PendingApprovalsScreen({super.key});
 
@@ -295,11 +295,11 @@ class _PendingApprovalsScreenState extends State<PendingApprovalsScreen> {
                                       style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
                                     ),
                                   ),
-                                  Text(
+                                                                    Text(
                                     'Rs ${(item['amount'] as num).toStringAsFixed(0)}',
                                     style: TextStyle(
                                       fontWeight: FontWeight.bold,
-                                      color: isDebit ? Colors.red : Colors.green,
+                                      color: isDebit ? AppColors.rickshawRed : AppColors.truckGreen,
                                     ),
                                   ),
                                 ],
@@ -328,9 +328,9 @@ class _PendingApprovalsScreenState extends State<PendingApprovalsScreen> {
                               SizedBox(
                                 width: double.infinity,
                                 child: OutlinedButton.icon(
-                                  style: OutlinedButton.styleFrom(
-                                    foregroundColor: Colors.teal,
-                                    side: const BorderSide(color: Colors.teal),
+                                                                    style: OutlinedButton.styleFrom(
+                                    foregroundColor: AppColors.deepIndigo,
+                                    side: const BorderSide(color: AppColors.deepIndigo),
                                   ),
                                   icon: const Icon(Icons.person_search, size: 18),
                                   label: const Text('Link By List'),

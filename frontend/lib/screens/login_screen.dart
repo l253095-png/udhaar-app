@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import '../services/api_service.dart';
 import 'home_screen.dart';
 import 'worker_dashboard.dart';
-
+import '../theme/app_colors.dart';
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
 
@@ -48,9 +48,9 @@ class _LoginScreenState extends State<LoginScreen> {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              const Icon(Icons.store, size: 64, color: Colors.teal),
+                            const Icon(Icons.storefront_rounded, size: 72, color: AppColors.marigold),
               const SizedBox(height: 12),
-              const Text('Udhaar Manager', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
+              Text('Professoron Ka Khata', style: Theme.of(context).textTheme.headlineLarge),
               const SizedBox(height: 32),
               TextField(
                 controller: _usernameController,

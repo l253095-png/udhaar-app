@@ -9,6 +9,7 @@ import 'login_screen.dart';
 import 'manage_users_screen.dart';
 import 'sync_history_screen.dart';
 import 'imported_entries_screen.dart';
+import '../theme/app_colors.dart';
 
 /// Owner's main landing screen after login — 5 module tiles + pending review badge.
 class HomeScreen extends StatefulWidget {
@@ -186,7 +187,9 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ],
       ),
-      floatingActionButton: FloatingActionButton.extended(
+           floatingActionButton: FloatingActionButton.extended(
+        backgroundColor: AppColors.marigold,
+        foregroundColor: AppColors.deepIndigo,
         onPressed: _syncing ? null : _syncFromSheet,
         icon: _syncing
             ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
@@ -208,20 +211,15 @@ class _HomeScreenState extends State<HomeScreen> {
           children: [
             // LIVE CLOCK — shows current date & time so entry timestamps can be
             // visually verified against "right now" on the shop PC/laptop.
-            Card(
-              color: Colors.teal.shade50,
+                        Card(
+              color: AppColors.marigold.withOpacity(0.12),
               child: Padding(
                 padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 12),
                 child: Column(
                   children: [
                     Text(
                       DateFormat('hh:mm:ss a').format(_now),
-                      style: const TextStyle(fontSize: 32, fontWeight: FontWeight.bold, color: Colors.teal),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      DateFormat('EEEE, dd MMMM yyyy').format(_now),
-                      style: const TextStyle(fontSize: 14, color: Colors.grey),
+                      style: const TextStyle(fontSize: 32, fontWeight: FontWeight.bold, color: AppColors.deepIndigo),
                     ),
                   ],
                 ),
@@ -271,9 +269,10 @@ class _HomeScreenState extends State<HomeScreen> {
               childAspectRatio: 1.1,
               children: [
                 _ModuleTile(
-                  title: 'Udhaar System',
+                                 _ModuleTile(
+                  title: 'Udhaariyeeee',
                   icon: Icons.receipt_long,
-                  color: Colors.teal,
+                  color: AppColors.deepIndigo,
                   subtitle: 'Outstanding: Rs ${_udhaarSystemTotal.abs().toStringAsFixed(0)}',
                   onTap: () async {
                     await Navigator.of(context).push(MaterialPageRoute(builder: (_) => const OwnerDashboard()));

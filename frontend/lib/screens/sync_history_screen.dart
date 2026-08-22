@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import '../services/api_service.dart';
-
+import '../theme/app_colors.dart';
 /// Shows past sync runs (by day/tab) with an option to fully undo one —
 /// reversing every transaction it created, so that day can be synced fresh.
 class SyncHistoryScreen extends StatefulWidget {
@@ -167,7 +167,7 @@ class _SyncHistoryScreenState extends State<SyncHistoryScreen> {
                               return Card(
                                 margin: const EdgeInsets.only(bottom: 10),
                                 child: ListTile(
-                                  leading: const Icon(Icons.sync, color: Colors.teal),
+                                                                   leading: const Icon(Icons.sync, color: AppColors.deepIndigo),
                                   title: Text(tabName),
                                   subtitle: Text(
                                     '${entry['rows_synced'] ?? 0} synced · ${entry['new_customers_flagged'] ?? 0} pending review\n'

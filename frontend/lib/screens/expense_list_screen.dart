@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../services/api_service.dart';
-
+import '../theme/app_colors.dart';
+import '../widgets/animated_balance_text.dart';
 class ExpenseListScreen extends StatefulWidget {
   final String category;
   final String title;
@@ -129,22 +130,29 @@ class _ExpenseListScreenState extends State<ExpenseListScreen> {
 
     return Scaffold(
       appBar: AppBar(title: Text(widget.title)),
-      floatingActionButton: FloatingActionButton.extended(
+            floatingActionButton: FloatingActionButton.extended(
         onPressed: () => _showEntryDialog(),
+        backgroundColor: AppColors.marigold,
+        foregroundColor: AppColors.deepIndigo,
         icon: const Icon(Icons.add),
         label: const Text('Add Entry'),
       ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : Column(
-              children: [
-                Container(
+                              Container(
                   width: double.infinity,
                   padding: const EdgeInsets.all(16),
-                  color: Colors.grey.shade100,
-                  child: Text(
-                    'This Month Total: Rs ${total.toStringAsFixed(0)}',
-                    style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  color: AppColors.marigold.withOpacity(0.12),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Text('This Month Total: ', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                      AnimatedBalanceText(
+                        value: total,
+                        style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppColors.deepIndigo),
+                      ),
+                    ],
                   ),
                 ),
                 Expanded(

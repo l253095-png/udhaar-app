@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../services/api_service.dart';
+import '../theme/app_colors.dart';
+import '../widgets/animated_balance_text.dart';
 
 /// Shows a filtered list of transactions (e.g. "Today's Debit",
 /// "This Month's Credit") with a running total at the top.
@@ -47,7 +49,7 @@ class _TransactionReportScreenState extends State<TransactionReportScreen> {
   Widget build(BuildContext context) {
     final dateFormat = DateFormat('dd MMM, hh:mm a');
     final isDebit = widget.type == 'udhaar';
-    final accentColor = widget.type == null ? Colors.blueGrey : (isDebit ? Colors.red : Colors.green);
+    final accentColor = widget.type == null ? AppColors.deepIndigo : (isDebit ? AppColors.rickshawRed : AppColors.truckGreen);
 
     return Scaffold(
       appBar: AppBar(title: Text(widget.title)),
@@ -63,8 +65,10 @@ class _TransactionReportScreenState extends State<TransactionReportScreen> {
                     color: accentColor.withOpacity(0.08),
                     child: Column(
                       children: [
-                        Text('Total: Rs ${_total.toStringAsFixed(0)}',
-                            style: TextStyle(fontSize: 26, fontWeight: FontWeight.bold, color: accentColor)),
+                                                AnimatedBalanceText(
+                          value: _total,
+                          style: TextStyle(fontSize: 26, fontWeight: FontWeight.bold, color: accentColor),
+                        ),
                         const SizedBox(height: 4),
                         Text('${_transactions.length} entries', style: const TextStyle(color: Colors.grey)),
                       ],
@@ -83,17 +87,17 @@ class _TransactionReportScreenState extends State<TransactionReportScreen> {
                                 d = DateTime.parse(t['created_at']);
                               } catch (_) {}
                               return ListTile(
-                                leading: Icon(
+                                                                leading: Icon(
                                   txnIsDebit ? Icons.arrow_upward : Icons.arrow_downward,
-                                  color: txnIsDebit ? Colors.red : Colors.green,
+                                  color: txnIsDebit ? AppColors.rickshawRed : AppColors.truckGreen,
                                 ),
                                 title: Text(t['customer_name'] ?? 'Unknown'),
                                 subtitle: Text(d != null ? dateFormat.format(d) : ''),
-                                trailing: Text(
-                                  'Rs ${(t['amount'] as num).toStringAsFixed(0)}',
+                                trailing: AnimatedBalanceText(
+                                  value: (t['amount'] as num).toDouble(),
                                   style: TextStyle(
                                     fontWeight: FontWeight.bold,
-                                    color: txnIsDebit ? Colors.red : Colors.green,
+                                    color: txnIsDebit ? AppColors.rickshawRed : AppColors.truckGreen,
                                   ),
                                 ),
                               );

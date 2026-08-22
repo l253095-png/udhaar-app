@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../services/api_service.dart';
-
+import '../theme/app_colors.dart';
+import '../widgets/animated_balance_text.dart';
 /// Every entry from a Sheet sync lands here first — NOT in the customer's
 /// balance yet. The Owner reviews and approves each one (or Approves All)
 /// before it actually counts as a real transaction.
@@ -216,15 +217,20 @@ class _ImportedEntriesScreenState extends State<ImportedEntriesScreen> {
           ? const Center(child: CircularProgressIndicator())
           : Column(
               children: [
-                Container(
+                                Container(
                   width: double.infinity,
                   padding: const EdgeInsets.all(16),
-                  color: Colors.blue.shade50,
+                  color: AppColors.marigold.withOpacity(0.12),
                   child: Column(
                     children: [
-                      Text(
-                        '${_entries.length} entries awaiting your approval',
-                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                                            Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          const Text('Udhaar: ', style: TextStyle(color: Colors.grey, fontSize: 12)),
+                          AnimatedBalanceText(value: totalDebit, style: const TextStyle(color: AppColors.rickshawRed, fontSize: 12, fontWeight: FontWeight.bold)),
+                          const Text('   |   Wasooli: ', style: TextStyle(color: Colors.grey, fontSize: 12)),
+                          AnimatedBalanceText(value: totalCredit, style: const TextStyle(color: AppColors.truckGreen, fontSize: 12, fontWeight: FontWeight.bold)),
+                        ],
                       ),
                       const SizedBox(height: 4),
                       Text(
@@ -284,9 +290,9 @@ class _ImportedEntriesScreenState extends State<ImportedEntriesScreen> {
                                   children: [
                                     Row(
                                       children: [
-                                        Icon(
+                                                                               Icon(
                                           isDebit ? Icons.arrow_upward : Icons.arrow_downward,
-                                          color: isDebit ? Colors.red : Colors.green,
+                                          color: isDebit ? AppColors.rickshawRed : AppColors.truckGreen,
                                         ),
                                         const SizedBox(width: 8),
                                         Expanded(
@@ -295,11 +301,11 @@ class _ImportedEntriesScreenState extends State<ImportedEntriesScreen> {
                                             style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
                                           ),
                                         ),
-                                        Text(
-                                          'Rs ${(item['amount'] as num).toStringAsFixed(0)}',
+                                        AnimatedBalanceText(
+                                          value: (item['amount'] as num).toDouble(),
                                           style: TextStyle(
                                             fontWeight: FontWeight.bold,
-                                            color: isDebit ? Colors.red : Colors.green,
+                                            color: isDebit ? AppColors.rickshawRed : AppColors.truckGreen,
                                           ),
                                         ),
                                       ],

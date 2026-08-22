@@ -2,7 +2,8 @@ import 'package:flutter/material.dart';
 import '../services/api_service.dart';
 import 'login_screen.dart';
 import 'customer_detail_screen.dart';
-
+import '../theme/app_colors.dart';
+import '../widgets/animated_balance_text.dart';
 /// Worker can only SEARCH customers and VIEW their transaction history.
 /// No add / edit / delete / credit / debit controls exist anywhere on this screen.
 class WorkerDashboard extends StatefulWidget {
@@ -84,11 +85,11 @@ class _WorkerDashboardState extends State<WorkerDashboard> {
                               leading: const Icon(Icons.person),
                               title: Text(c['name']),
                               subtitle: Text(c['phone'] ?? ''),
-                              trailing: Text(
-                                'Rs ${balance.toStringAsFixed(0)}',
+                                                           trailing: AnimatedBalanceText(
+                                value: balance,
                                 style: TextStyle(
                                   fontWeight: FontWeight.bold,
-                                  color: balance > 0 ? Colors.red : Colors.green,
+                                  color: balance > 0 ? AppColors.rickshawRed : AppColors.truckGreen,
                                 ),
                               ),
                               onTap: () {
