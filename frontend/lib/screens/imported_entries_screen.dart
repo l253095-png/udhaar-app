@@ -137,7 +137,16 @@ class _ImportedEntriesScreenState extends State<ImportedEntriesScreen> {
   @override
   Widget build(BuildContext context) {
     final dateFormat = DateFormat('dd MMM, hh:mm a');
-    final total = _entries.fold<double>(0, (sum, e) => sum + (e['amount'] as num).toDouble());
+
+    // Split entries into debit (udhaar) and credit (wasooli) so we can show
+    // a correct net balance instead of just summing every amount together.
+    final totalDebit = _entries
+        .where((e) => e['type'] == 'udhaar')
+        .fold<double>(0, (sum, e) => sum + (e['amount'] as num).toDouble());
+    final totalCredit = _entries
+        .where((e) => e['type'] != 'udhaar')
+        .fold<double>(0, (sum, e) => sum + (e['amount'] as num).toDouble());
+    final netBalance = totalDebit - totalCredit;
 
     return Scaffold(
       appBar: AppBar(
@@ -218,7 +227,22 @@ class _ImportedEntriesScreenState extends State<ImportedEntriesScreen> {
                         style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
                       ),
                       const SizedBox(height: 4),
-                      Text('Total: Rs ${total.toStringAsFixed(0)}', style: const TextStyle(color: Colors.grey)),
+                      Text(
+                        'Udhaar: Rs ${totalDebit.toStringAsFixed(0)}   |   Wasooli: Rs ${totalCredit.toStringAsFixed(0)}',
+                        style: const TextStyle(color: Colors.grey, fontSize: 12),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        'Net Balance: Rs ${netBalance.abs().toStringAsFixed(0)}'
+                        '${netBalance > 0 ? " (Udhaar)" : (netBalance < 0 ? " (Wasooli)" : "")}',
+                        style: TextStyle(
+                          color: netBalance > 0
+                              ? Colors.red
+                              : (netBalance < 0 ? Colors.green : Colors.grey),
+                          fontWeight: FontWeight.bold,
+                          fontSize: 14,
+                        ),
+                      ),
                       const SizedBox(height: 4),
                       const Text(
                         'These have NOT been added to any customer\'s balance yet.',
