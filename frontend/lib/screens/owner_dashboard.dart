@@ -17,7 +17,7 @@ class _OwnerDashboardState extends State<OwnerDashboard> {
   List<dynamic> _filteredCustomers = [];
   bool _loading = true;
   String _searchTerm = '';
-  
+
   // Filter and Sorting options
   String _filterType = 'all'; // 'all', 'has_balance', 'zero_balance'
   String _sortBy = 'balance_desc'; // 'balance_desc', 'name_asc'
@@ -231,7 +231,10 @@ class _OwnerDashboardState extends State<OwnerDashboard> {
     }
   }
 
-  Widget _buildReportTile(String label, IconData icon, Color color, VoidCallback onTap) {
+  /// [count] is optional — when provided, a bold number is shown under the
+  /// label (used for "Total Customers" so the Owner can eyeball the count
+  /// before/after a sync to catch accidental duplicate-customer creation).
+  Widget _buildReportTile(String label, IconData icon, Color color, VoidCallback onTap, {int? count}) {
     return Padding(
       padding: const EdgeInsets.only(right: 8.0),
       child: InkWell(
@@ -262,6 +265,13 @@ class _OwnerDashboardState extends State<OwnerDashboard> {
                   ),
                 ),
               ),
+              if (count != null) ...[
+                const SizedBox(height: 2),
+                Text(
+                  '$count',
+                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.w900, color: color),
+                ),
+              ],
             ],
           ),
         ),
@@ -344,6 +354,7 @@ class _OwnerDashboardState extends State<OwnerDashboard> {
                     setState(() => _searchTerm = '');
                     _load();
                   },
+                  count: _allCustomers.length,
                 ),
               ],
             ),
