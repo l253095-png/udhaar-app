@@ -570,14 +570,27 @@ router.post('/bulk-reject', async (req, res) => {
 });
 
 // POST /api/sheets-sync/bulk-approve-as-create
+//
+// FIXED: this used to blindly create a brand new customer for every single
+// pending entry, even when the system already had a good suggested match
+// (pending.suggested_customer_id from the fuzzy-matcher in /run). That meant
+// one tap could silently create duplicate customers for names that already
+// existed (e.g. sheet name "298b" vs existing customer "ch akram 298b").
+//
+// New behavior:
+//   - If a pending entry HAS a suggested_customer_id -> link to that existing
+//     customer (moves to Imported Entries, no new customer created).
+//   - If a pending entry has NO suggestion -> leave it in the Pending list
+//     untouched, so the Owner can manually Link / Link By List / Create it.
 router.post('/bulk-approve-as-create', async (req, res) => {
   const { pendingIds } = req.body;
   if (!Array.isArray(pendingIds) || pendingIds.length === 0) {
     return res.status(400).json({ error: 'pendingIds must be a non-empty array' });
   }
   try {
-    let approvedCount = 0;
-    const createdCustomerIds = [];
+    let linkedCount = 0;
+    let skippedCount = 0;
+    const linkedCustomerIds = [];
 
     for (const pendingId of pendingIds) {
       const pendingRes = await db.execute({
@@ -587,12 +600,15 @@ router.post('/bulk-approve-as-create', async (req, res) => {
       const pending = pendingRes.rows[0];
       if (!pending) continue;
 
-      const info = await db.execute({
-        sql: 'INSERT INTO customers (name, phone) VALUES (?, ?)',
-        args: [pending.sheet_name, pending.phone || null]
-      });
-      const customerId = Number(info.lastInsertRowid);
-      createdCustomerIds.push(customerId);
+      if (!pending.suggested_customer_id) {
+        // No confident match — leave it here for manual review instead of
+        // guessing and creating a possibly-duplicate customer.
+        skippedCount++;
+        continue;
+      }
+
+      const customerId = pending.suggested_customer_id;
+      linkedCustomerIds.push(customerId);
 
       await db.execute({
         sql: 'INSERT INTO staged_entries (customer_id, type, amount, tab_name, sheet_id, marker_cell, row_key, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
@@ -601,10 +617,15 @@ router.post('/bulk-approve-as-create', async (req, res) => {
 
       await db.execute({ sql: 'DELETE FROM pending_sheet_syncs WHERE id = ?', args: [pendingId] });
       await colorCell(pending.sheet_id, pending.marker_cell, COLOR_STAGED);
-      approvedCount++;
+      linkedCount++;
     }
 
-    res.json({ message: 'Moved to Imported Entries — approve them there to apply to balances', approvedCount, createdCustomerIds });
+    res.json({
+      message: `${linkedCount} entries linked to their suggested customer and moved to Imported Entries. ${skippedCount} entries had no suggested match and were left here for manual linking.`,
+      linkedCount,
+      skippedCount,
+      linkedCustomerIds
+    });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Failed to bulk approve', details: err.message });

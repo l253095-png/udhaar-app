@@ -30,20 +30,31 @@ class _PendingApprovalsScreenState extends State<PendingApprovalsScreen> {
     }
   }
 
+  /// Links every pending entry that already has a suggested existing customer
+  /// (from the fuzzy matcher) to that customer, moving it to Imported Entries.
+  /// Entries with NO suggestion are left untouched here so the Owner can
+  /// review them manually (Link By List / Create) instead of the app silently
+  /// creating a brand-new (possibly duplicate) customer for them.
   Future<void> _bulkApproveAsCreate() async {
     if (_pending.isEmpty) return;
+
+    final withSuggestion = _pending.where((e) => e['suggested_customer_id'] != null).length;
+    final withoutSuggestion = _pending.length - withSuggestion;
 
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (_) => AlertDialog(
-        title: const Text('Approve All Entries?'),
-        content: Text('Create new customers for all ${_pending.length} pending entries and import transactions.'),
+        title: const Text('Link All Suggested Matches?'),
+        content: Text(
+          '$withSuggestion of ${_pending.length} entries have a suggested existing customer and will be linked to them.\n\n'
+          '$withoutSuggestion entries have no suggestion and will stay in this Pending list for you to link manually.',
+        ),
         actions: [
           TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
           ElevatedButton(
             style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
             onPressed: () => Navigator.pop(context, true),
-            child: const Text('Approve All'),
+            child: const Text('Link All Suggested'),
           ),
         ],
       ),
@@ -53,10 +64,10 @@ class _PendingApprovalsScreenState extends State<PendingApprovalsScreen> {
 
     try {
       final pendingIds = _pending.map<int>((item) => item['id'] as int).toList();
-      await ApiService.bulkApproveAsCreate(pendingIds);
+      final result = await ApiService.bulkApproveAsCreate(pendingIds);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('${_pending.length} entries approved and customers created')),
+          SnackBar(content: Text(result['message']?.toString() ?? 'Done')),
         );
       }
       _load();
@@ -230,7 +241,7 @@ class _PendingApprovalsScreenState extends State<PendingApprovalsScreen> {
         actions: _pending.isNotEmpty
             ? [
                 Tooltip(
-                  message: 'Approve all entries as new customers',
+                  message: 'Link all entries that have a suggested match',
                   child: IconButton(
                     icon: const Icon(Icons.check_circle),
                     onPressed: _bulkApproveAsCreate,
