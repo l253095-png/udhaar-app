@@ -20,7 +20,7 @@ class _OwnerDashboardState extends State<OwnerDashboard> {
 
   // Filter and Sorting options
   String _filterType = 'all'; // 'all', 'has_balance', 'zero_balance'
-  String _sortBy = 'balance_desc'; // 'balance_desc', 'name_asc'
+  String _sortBy = 'balance_desc'; // 'balance_desc', 'name_asc', 'latest_first'
 
   @override
   void initState() {
@@ -65,6 +65,22 @@ class _OwnerDashboardState extends State<OwnerDashboard> {
         final nameA = (a['name'] ?? '').toString().toLowerCase();
         final nameB = (b['name'] ?? '').toString().toLowerCase();
         return nameA.compareTo(nameB);
+      });
+    } else if (_sortBy == 'latest_first') {
+      temp.sort((a, b) {
+        final dateA = a['last_transaction_at'] != null
+            ? DateTime.tryParse(a['last_transaction_at'].toString())
+            : null;
+        final dateB = b['last_transaction_at'] != null
+            ? DateTime.tryParse(b['last_transaction_at'].toString())
+            : null;
+
+        // Customers with no transactions ever go to the bottom.
+        if (dateA == null && dateB == null) return 0;
+        if (dateA == null) return 1;
+        if (dateB == null) return -1;
+
+        return dateB.compareTo(dateA); // Most recent first
       });
     }
 
@@ -177,8 +193,7 @@ class _OwnerDashboardState extends State<OwnerDashboard> {
     }
   }
 
-  /// Quick Credit/Debit entry directly from the customer list, without
-  /// needing to navigate to the Customer Detail screen.
+  /// Quick Credit/Debit entry directly from the customer list
   Future<void> _showQuickTransactionDialog(Map<String, dynamic> customer, String type) async {
     final amountController = TextEditingController();
     final noteController = TextEditingController();
@@ -231,9 +246,6 @@ class _OwnerDashboardState extends State<OwnerDashboard> {
     }
   }
 
-  /// [count] is optional — when provided, a bold number is shown under the
-  /// label (used for "Total Customers" so the Owner can eyeball the count
-  /// before/after a sync to catch accidental duplicate-customer creation).
   Widget _buildReportTile(String label, IconData icon, Color color, VoidCallback onTap, {int? count}) {
     return Padding(
       padding: const EdgeInsets.only(right: 8.0),
@@ -411,6 +423,7 @@ class _OwnerDashboardState extends State<OwnerDashboard> {
                   items: const [
                     DropdownMenuItem(value: 'balance_desc', child: Text('Highest Balance First', style: TextStyle(fontSize: 13))),
                     DropdownMenuItem(value: 'name_asc', child: Text('Sort by Name (A-Z)', style: TextStyle(fontSize: 13))),
+                    DropdownMenuItem(value: 'latest_first', child: Text('Latest Entry First', style: TextStyle(fontSize: 13))),
                   ],
                   onChanged: (val) {
                     if (val != null) {

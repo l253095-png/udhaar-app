@@ -138,6 +138,7 @@ async function initDb() {
   await addColumnIfMissing('pending_sheet_syncs', 'sheet_id', 'TEXT');
   await addColumnIfMissing('pending_sheet_syncs', 'marker_cell', 'TEXT');
   await addColumnIfMissing('pending_sheet_syncs', 'tab_name', 'TEXT');
+  await addColumnIfMissing('customers', 'public_token', 'TEXT');
 
   // ---- Fix ignored_sheet_names ----
   async function fixIgnoredSheetNamesSchema() {

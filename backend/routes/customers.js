@@ -1,7 +1,7 @@
 const express = require('express');
 const { db } = require('../config/db');
 const { authenticate, ownerOnly } = require('../middleware/auth');
-
+const crypto = require('crypto');
 const router = express.Router();
 router.use(authenticate); // all customer routes require login
 
@@ -26,11 +26,20 @@ router.get('/', async (req, res) => {
     if (search && search.trim()) {
       const term = `%${search.trim()}%`;
       result = await db.execute({
-        sql: 'SELECT * FROM customers WHERE name LIKE ? OR phone LIKE ? ORDER BY name',
+        sql: `SELECT c.*, 
+                (SELECT MAX(created_at) FROM transactions WHERE customer_id = c.id) as last_transaction_at 
+              FROM customers c 
+              WHERE c.name LIKE ? OR c.phone LIKE ? 
+              ORDER BY c.name`,
         args: [term, term]
       });
     } else {
-      result = await db.execute('SELECT * FROM customers ORDER BY name');
+      result = await db.execute(`
+        SELECT c.*, 
+          (SELECT MAX(created_at) FROM transactions WHERE customer_id = c.id) as last_transaction_at 
+        FROM customers c 
+        ORDER BY c.name
+      `);
     }
     res.json(result.rows);
   } catch (error) {

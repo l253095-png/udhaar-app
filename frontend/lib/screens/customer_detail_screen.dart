@@ -40,6 +40,7 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
   }
 
   // Open Direct WhatsApp Reminder
+   // Open Direct WhatsApp Reminder
   Future<void> _sendWhatsAppReminder(double balance) async {
     final phone = _customer?['phone'] ?? '';
     final name = _customer?['name'] ?? 'Customer';
@@ -51,10 +52,20 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
       return;
     }
 
+    String historyLink = '';
+    try {
+      historyLink = await ApiService.getPublicHistoryLink(widget.customerId);
+    } catch (_) {
+      // Link generation failed — still send the reminder without it.
+    }
+
     final message = Uri.encodeComponent(
       "Assalam-o-Alaikum $name,\n"
-      "Aapka remaining khata balance Rs ${balance.toStringAsFixed(0)} hai.\n"
-      "Barae karam baqaya wasooli jald az jald jama karwa dein. Shukriya!",
+      "Tis is a computer generated message.\n"
+      "Your Remaining balance is Rs ${balance.toStringAsFixed(0)} hai.\n"
+      "If you want to see your full transaction history, please click the link below:\n"
+      "Thanks!\n\n"
+      "${historyLink.isNotEmpty ? '\n\nCheck your complete transaction history:\n$historyLink' : ''}",
     );
 
     final cleanPhone = phone.replaceAll(RegExp(r'[^\d+]'), '');

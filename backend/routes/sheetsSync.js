@@ -884,5 +884,31 @@ router.post('/staged/bulk-reject', async (req, res) => {
     res.status(500).json({ error: 'Failed to bulk reject staged entries', details: err.message });
   }
 });
+// GET /api/customers/:id/public-link - Owner only. Shareable, no-login link
+// to this customer's transaction history (token generated on first use).
+router.get('/:id/public-link', ownerOnly, async (req, res) => {
+  try {
+    const custResult = await db.execute({
+      sql: 'SELECT * FROM customers WHERE id = ?',
+      args: [req.params.id]
+    });
+    const customer = custResult.rows[0];
+    if (!customer) return res.status(404).json({ error: 'Customer not found' });
 
+    let token = customer.public_token;
+    if (!token) {
+      token = crypto.randomBytes(16).toString('hex');
+      await db.execute({
+        sql: 'UPDATE customers SET public_token = ? WHERE id = ?',
+        args: [token, req.params.id]
+      });
+    }
+
+    const base = process.env.PUBLIC_BASE_URL || 'https://udhaar-app.onrender.com';
+    res.json({ link: `${base}/public/history/${token}` });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Server error generating public link' });
+  }
+});
 module.exports = router;

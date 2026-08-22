@@ -131,6 +131,16 @@ class ApiService {
     final data = jsonDecode(res.body);
     return (data['totalBalance'] as num?)?.toDouble() ?? 0.0;
   }
+    static Future<String> getPublicHistoryLink(int customerId) async {
+    final res = await http.get(
+      Uri.parse('$baseUrl/api/customers/$customerId/public-link'),
+      headers: await _headers(),
+    );
+    if (res.statusCode != 200) {
+      throw Exception(jsonDecode(res.body)['error'] ?? 'Failed to get link');
+    }
+    return jsonDecode(res.body)['link'];
+  }
 
   // ---- Transactions ----
   // ---- Transactions ----
