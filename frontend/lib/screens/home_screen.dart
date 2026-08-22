@@ -269,7 +269,7 @@ class _HomeScreenState extends State<HomeScreen> {
               childAspectRatio: 1.1,
               children: [
                 _ModuleTile(
-                                 _ModuleTile(
+                                 
                   title: 'Udhaariyeeee',
                   icon: Icons.receipt_long,
                   color: AppColors.deepIndigo,

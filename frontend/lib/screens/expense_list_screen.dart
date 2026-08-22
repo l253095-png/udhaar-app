@@ -137,10 +137,11 @@ class _ExpenseListScreenState extends State<ExpenseListScreen> {
         icon: const Icon(Icons.add),
         label: const Text('Add Entry'),
       ),
-      body: _loading
+           body: _loading
           ? const Center(child: CircularProgressIndicator())
           : Column(
-                              Container(
+              children: [
+                Container(
                   width: double.infinity,
                   padding: const EdgeInsets.all(16),
                   color: AppColors.marigold.withOpacity(0.12),
