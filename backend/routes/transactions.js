@@ -1,7 +1,7 @@
 const express = require('express');
 const { db } = require('../config/db');
 const { authenticate, ownerOnly } = require('../middleware/auth');
-
+const PDFDocument = require('pdfkit');
 const router = express.Router();
 router.use(authenticate);
 
@@ -179,5 +179,104 @@ router.delete('/:id', ownerOnly, async (req, res) => {
     res.status(500).json({ error: 'Server error deleting transaction' });
   }
 });
+// GET /api/transactions/range-report/pdf?start=YYYY-MM-DD&end=YYYY-MM-DD
+// System-wide PDF: every transaction in the date range, with the customer's
+// balance right after that specific transaction (walked back from their
+// CURRENT balance across their full history, then filtered to the range).
+router.get('/range-report/pdf', ownerOnly, async (req, res) => {
+  try {
+    const { start, end } = req.query;
+    if (!start || !end) {
+      return res.status(400).json({ error: 'start and end dates are required' });
+    }
 
+    const rangeResult = await db.execute({
+      sql: `SELECT t.*, c.name as customer_name
+            FROM transactions t
+            JOIN customers c ON c.id = t.customer_id
+            WHERE date(t.created_at) BETWEEN date(?) AND date(?)
+            ORDER BY t.created_at ASC`,
+      args: [start, end]
+    });
+    const rangeTxns = rangeResult.rows;
+
+    // Work out "balance after" for each transaction, per customer.
+    const customerIds = [...new Set(rangeTxns.map(t => t.customer_id))];
+    const balanceAfterMap = {};
+
+    for (const custId of customerIds) {
+      const custResult = await db.execute({
+        sql: 'SELECT * FROM customers WHERE id = ?',
+        args: [custId]
+      });
+      const customer = custResult.rows[0];
+      if (!customer) continue;
+
+      const allTxResult = await db.execute({
+        sql: 'SELECT * FROM transactions WHERE customer_id = ? ORDER BY created_at DESC',
+        args: [custId]
+      });
+
+      let runningBalance = customer.balance || 0;
+      for (const t of allTxResult.rows) {
+        balanceAfterMap[t.id] = runningBalance;
+        const amt = t.amount || 0;
+        const effect = t.type === 'udhaar' ? amt : -amt;
+        runningBalance -= effect;
+      }
+    }
+
+    const doc = new PDFDocument({ margin: 40, size: 'A4' });
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="report_${start}_to_${end}.pdf"`);
+    doc.pipe(res);
+
+    doc.fontSize(18).text('Udhaar Report', { align: 'center' });
+    doc.moveDown(0.3);
+    doc.fontSize(11).fillColor('#555').text(`${start} to ${end}`, { align: 'center' });
+    doc.moveDown(1);
+
+    const totalDebit = rangeTxns.filter(t => t.type === 'udhaar').reduce((s, t) => s + t.amount, 0);
+    const totalCredit = rangeTxns.filter(t => t.type === 'wasooli').reduce((s, t) => s + t.amount, 0);
+    doc.fontSize(12).fillColor('#000')
+      .text(`Total Debit (Udhaar): Rs ${totalDebit.toFixed(0)}`)
+      .text(`Total Credit (Wasooli): Rs ${totalCredit.toFixed(0)}`)
+      .text(`Total Entries: ${rangeTxns.length}`);
+    doc.moveDown(1);
+
+    let y = doc.y;
+    doc.fontSize(10).fillColor('#000');
+    doc.text('Date', 40, y, { width: 90 });
+    doc.text('Customer', 140, y, { width: 150 });
+    doc.text('Type', 300, y, { width: 70 });
+    doc.text('Amount', 380, y, { width: 70 });
+    doc.text('Balance After', 460, y, { width: 95 });
+    y += 16;
+    doc.moveTo(40, y).lineTo(555, y).stroke();
+    y += 6;
+
+    for (const t of rangeTxns) {
+      if (y > 770) {
+        doc.addPage();
+        y = 40;
+      }
+      const dateStr = (t.created_at || '').split(' ')[0];
+      const balAfter = balanceAfterMap[t.id];
+
+      doc.fontSize(9).fillColor('#000').text(dateStr, 40, y, { width: 90 });
+      doc.text(t.customer_name || '', 140, y, { width: 150 });
+      doc.fillColor(t.type === 'udhaar' ? '#c0392b' : '#27ae60')
+        .text(t.type === 'udhaar' ? 'Debit' : 'Credit', 300, y, { width: 70 });
+      doc.fillColor('#000').text(`Rs ${t.amount.toFixed(0)}`, 380, y, { width: 70 });
+      doc.text(balAfter != null ? `Rs ${balAfter.toFixed(0)}` : '-', 460, y, { width: 95 });
+
+      y += 16;
+    }
+
+    doc.end();
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Server error generating report' });
+  }
+});
 module.exports = router;

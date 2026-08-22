@@ -3,6 +3,8 @@ import 'dart:io' show Platform;
 import 'package:flutter/foundation.dart' show kIsWeb, kDebugMode;
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
+import 'pdf_downloader_stub.dart'
+    if (dart.library.html) 'pdf_downloader_web.dart';
 
 /// Custom exception for sync errors that includes error code and details
 class SyncException implements Exception {
@@ -140,6 +142,18 @@ class ApiService {
       throw Exception(jsonDecode(res.body)['error'] ?? 'Failed to get link');
     }
     return jsonDecode(res.body)['link'];
+  }
+    static Future<void> downloadRangeReportPdf(DateTime start, DateTime end) async {
+    final startStr = start.toIso8601String().split('T')[0];
+    final endStr = end.toIso8601String().split('T')[0];
+    final res = await http.get(
+      Uri.parse('$baseUrl/api/transactions/range-report/pdf?start=$startStr&end=$endStr'),
+      headers: await _headers(),
+    );
+    if (res.statusCode != 200) {
+      throw Exception('Failed to generate report');
+    }
+    triggerPdfDownload(res.bodyBytes, 'udhaar_report_${startStr}_to_$endStr.pdf');
   }
 
   // ---- Transactions ----

@@ -20,7 +20,7 @@ class _OwnerDashboardState extends State<OwnerDashboard> {
 
   // Filter and Sorting options
   String _filterType = 'all'; // 'all', 'has_balance', 'zero_balance'
-  String _sortBy = 'balance_desc'; // 'balance_desc', 'name_asc', 'latest_first'
+  String _sortBy = 'latest_first'; // 'balance_desc', 'name_asc', 'latest_first'
 
   @override
   void initState() {
@@ -243,6 +243,22 @@ class _OwnerDashboardState extends State<OwnerDashboard> {
       _load();
     } catch (e) {
       _showSnack('Failed: $e');
+    }
+  }
+    Future<void> _generateRangeReport() async {
+    final picked = await showDateRangePicker(
+      context: context,
+      firstDate: DateTime(2020),
+      lastDate: DateTime.now().add(const Duration(days: 1)),
+    );
+    if (picked == null) return;
+
+    _showSnack('Generating PDF report...');
+    try {
+      await ApiService.downloadRangeReportPdf(picked.start, picked.end);
+      _showSnack('Report downloaded');
+    } catch (e) {
+      _showSnack('Failed to generate report: $e');
     }
   }
 
