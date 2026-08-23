@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 /// scaling/fading in, followed by a "Developed by Muaz" message,
 /// then fades the whole thing out.
 ///
-/// Usage (e.g. in owner_dashboard.dart):
+/// Usage (e.g. in login_screen.dart):
 ///
 ///   bool _showCredit = true;
 ///
@@ -12,7 +12,7 @@ import 'package:flutter/material.dart';
 ///   Widget build(BuildContext context) {
 ///     return Stack(
 ///       children: [
-///         Scaffold( ... your existing dashboard body ... ),
+///         Scaffold( ... your existing login screen body ... ),
 ///         if (_showCredit)
 ///           DeveloperCreditOverlay(
 ///             onFinished: () => setState(() => _showCredit = false),
@@ -57,12 +57,13 @@ class _DeveloperCreditOverlayState extends State<DeveloperCreditOverlay>
   void initState() {
     super.initState();
 
+    // Total on-screen time: ~5.5 seconds
     _controller = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 3200),
+      duration: const Duration(milliseconds: 5500),
     );
 
-    // Photo: pops in with a slight overshoot (0% - 25% of timeline)
+    // Photo: pops in with a slight overshoot (0% - 15% of timeline)
     _photoScale = TweenSequence<double>([
       TweenSequenceItem(
         tween: Tween(begin: 0.4, end: 1.08)
@@ -75,29 +76,29 @@ class _DeveloperCreditOverlayState extends State<DeveloperCreditOverlay>
 
     _photoFade = CurvedAnimation(
       parent: _controller,
-      curve: const Interval(0.0, 0.25, curve: Curves.easeIn),
+      curve: const Interval(0.0, 0.15, curve: Curves.easeIn),
     );
 
-    // Text: slides up + fades in (30% - 55% of timeline)
+    // Text: slides up + fades in (18% - 32% of timeline), then stays visible
     _textSlide = Tween<Offset>(
       begin: const Offset(0, 0.4),
       end: Offset.zero,
     ).animate(
       CurvedAnimation(
         parent: _controller,
-        curve: const Interval(0.30, 0.55, curve: Curves.easeOutCubic),
+        curve: const Interval(0.18, 0.32, curve: Curves.easeOutCubic),
       ),
     );
 
     _textFade = CurvedAnimation(
       parent: _controller,
-      curve: const Interval(0.30, 0.55, curve: Curves.easeIn),
+      curve: const Interval(0.18, 0.32, curve: Curves.easeIn),
     );
 
-    // Whole overlay fades out at the end (82% - 100%)
+    // Whole overlay fades out at the end (90% - 100%)
     _overlayFade = CurvedAnimation(
       parent: _controller,
-      curve: const Interval(0.82, 1.0, curve: Curves.easeIn),
+      curve: const Interval(0.90, 1.0, curve: Curves.easeIn),
     );
 
     _controller.forward().whenComplete(() {
