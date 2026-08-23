@@ -239,7 +239,25 @@ class ApiService {
     }
     return jsonDecode(res.body);
   }
+  static Future<Map<String, dynamic>> getNetSummary({int? year, int? month}) async {
+    final params = <String, String>{};
+    if (year != null) params['year'] = year.toString();
+    if (month != null) params['month'] = month.toString();
+    final uri = Uri.parse('$baseUrl/api/expenses/net-summary').replace(queryParameters: params.isEmpty ? null : params);
+    final res = await http.get(uri, headers: await _headers());
+    if (res.statusCode != 200) {
+      throw Exception(jsonDecode(res.body)['error'] ?? 'Failed to fetch net summary');
+    }
+    return jsonDecode(res.body);
+  }
 
+  static Future<List<dynamic>> getNetSummaryHistory() async {
+    final res = await http.get(Uri.parse('$baseUrl/api/expenses/net-summary-history'), headers: await _headers());
+    if (res.statusCode != 200) {
+      throw Exception(jsonDecode(res.body)['error'] ?? 'Failed to fetch history');
+    }
+    return jsonDecode(res.body);
+  }
   static Future<void> addExpense(String category, double amount, String note) async {
     final res = await http.post(
       Uri.parse('$baseUrl/api/expenses/$category'),

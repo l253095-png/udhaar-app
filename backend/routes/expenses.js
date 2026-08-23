@@ -159,5 +159,77 @@ router.delete('/entry/:id', async (req, res) => {
     res.status(500).json({ error: 'Server error deleting expense' });
   }
 });
+// GET /api/expenses/net-summary?year=2026&month=8
+// Breakdown for one month: online - mainBranch - expense = net
+router.get('/net-summary', async (req, res) => {
+  try {
+    const now = new Date();
+    const year = parseInt(req.query.year) || now.getFullYear();
+    const month = parseInt(req.query.month) || (now.getMonth() + 1);
+    const ym = `${year}-${String(month).padStart(2, '0')}`;
+
+    const result = await db.execute({
+      sql: `SELECT
+              SUM(CASE WHEN category='daily_online' THEN amount ELSE 0 END) as online,
+              SUM(CASE WHEN category='daily_main_branch_purchase' THEN amount ELSE 0 END) as mainBranch,
+              SUM(CASE WHEN category='monthly_expense' THEN amount ELSE 0 END) as expense
+            FROM expenses
+            WHERE strftime('%Y-%m', entry_date) = ?`,
+      args: [ym]
+    });
+
+    const row = result.rows[0] || {};
+    const online = row.online || 0;
+    const mainBranch = row.mainBranch || 0;
+    const expense = row.expense || 0;
+    const net = online - mainBranch - expense;
+
+    // Is this the current, still-in-progress month?
+    const isCurrentMonth = year === now.getFullYear() && month === (now.getMonth() + 1);
+    const lastDayOfMonth = new Date(year, month, 0).getDate();
+    const isLastDay = isCurrentMonth && now.getDate() === lastDayOfMonth;
+
+    res.json({ year, month, ym, online, mainBranch, expense, net, isCurrentMonth, isLastDay });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Server error fetching net summary' });
+  }
+});
+
+// GET /api/expenses/net-summary-history
+// Past months' net totals (excludes current month), most recent first
+router.get('/net-summary-history', async (req, res) => {
+  try {
+    const now = new Date();
+    const currentYm = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+
+    const result = await db.execute(`
+      SELECT
+        strftime('%Y-%m', entry_date) as ym,
+        SUM(CASE WHEN category='daily_online' THEN amount ELSE 0 END) as online,
+        SUM(CASE WHEN category='daily_main_branch_purchase' THEN amount ELSE 0 END) as mainBranch,
+        SUM(CASE WHEN category='monthly_expense' THEN amount ELSE 0 END) as expense
+      FROM expenses
+      GROUP BY ym
+      ORDER BY ym DESC
+      LIMIT 13
+    `);
+
+    const history = result.rows
+      .filter(r => r.ym !== currentYm)
+      .map(r => ({
+        ym: r.ym,
+        online: r.online || 0,
+        mainBranch: r.mainBranch || 0,
+        expense: r.expense || 0,
+        net: (r.online || 0) - (r.mainBranch || 0) - (r.expense || 0)
+      }));
+
+    res.json(history);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Server error fetching history' });
+  }
+});
 
 module.exports = router;

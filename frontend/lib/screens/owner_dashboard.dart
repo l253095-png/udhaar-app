@@ -7,6 +7,7 @@ import 'transaction_report_screen.dart';
 import 'audit_history_screen.dart';
 import '../widgets/signboard_title.dart';
 import '../widgets/animated_balance_text.dart';
+import 'net_summary_screen.dart';
 class OwnerDashboard extends StatefulWidget {
   const OwnerDashboard({super.key});
 
@@ -329,6 +330,15 @@ class _OwnerDashboardState extends State<OwnerDashboard> {
             onPressed: () {
               Navigator.of(context).push(
                 MaterialPageRoute(builder: (_) => const AuditHistoryScreen()),
+              );
+            },
+          ),
+          IconButton(
+            icon: const Icon(Icons.account_balance_wallet),
+            tooltip: 'Monthly Net Summary',
+            onPressed: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const NetSummaryScreen()),
               );
             },
           ),
