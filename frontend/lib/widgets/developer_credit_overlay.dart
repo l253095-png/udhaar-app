@@ -132,13 +132,13 @@ class _DeveloperCreditOverlayState extends State<DeveloperCreditOverlay>
                     child: Transform.scale(
                       scale: _photoScale.value,
                       child: Container(
-                        width: 120,
-                        height: 120,
+                        width: 170,
+                        height: 170,
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
                           border: Border.all(
                             color: const Color(0xFFF4A322), // Marigold
-                            width: 3,
+                            width: 4,
                           ),
                           boxShadow: const [
                             BoxShadow(
@@ -164,7 +164,7 @@ class _DeveloperCreditOverlayState extends State<DeveloperCreditOverlay>
                         widget.message,
                         style: const TextStyle(
                           color: Color(0xFFFFF8ED), // Warm Cream
-                          fontSize: 20,
+                          fontSize: 23,
                           fontWeight: FontWeight.w600,
                           letterSpacing: 0.3,
                         ),
