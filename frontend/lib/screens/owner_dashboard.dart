@@ -263,7 +263,15 @@ class _OwnerDashboardState extends State<OwnerDashboard> {
       _showSnack('Failed to generate report: $e');
     }
   }
-
+ Future<void> _generateAllBalancesReport() async {
+    _showSnack('Generating balances PDF...');
+    try {
+      await ApiService.downloadAllBalancesPdf();
+      _showSnack('Balances PDF downloaded');
+    } catch (e) {
+      _showSnack('Failed to generate PDF: $e');
+    }
+  }
   Widget _buildReportTile(String label, IconData icon, Color color, VoidCallback onTap, {int? count}) {
     return Padding(
       padding: const EdgeInsets.only(right: 8.0),
@@ -359,6 +367,12 @@ class _OwnerDashboardState extends State<OwnerDashboard> {
                   Icons.picture_as_pdf,
                   Colors.deepPurple,
                   _generateRangeReport,
+                ),
+                _buildReportTile(
+                  'All Balances\nPDF',
+                  Icons.picture_as_pdf,
+                  Colors.deepOrange,
+                  _generateAllBalancesReport,
                 ),
                 _buildReportTile(
                   "Today's\nDebit",

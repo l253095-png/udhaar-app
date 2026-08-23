@@ -162,6 +162,16 @@ class ApiService {
     }
     triggerPdfDownload(res.bodyBytes, 'udhaar_report_${startStr}_to_$endStr.pdf');
   }
+  static Future<void> downloadAllBalancesPdf() async {
+    final res = await http.get(
+      Uri.parse('$baseUrl/api/customers/balances/pdf'),
+      headers: await _headers(),
+    );
+    if (res.statusCode != 200) {
+      throw Exception('Failed to generate balances PDF');
+    }
+    triggerPdfDownload(res.bodyBytes, 'all_balances.pdf');
+  }
 
   // ---- Transactions ----
   // ---- Transactions ----

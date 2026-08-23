@@ -2,6 +2,7 @@ const express = require('express');
 const { db } = require('../config/db');
 const { authenticate, ownerOnly } = require('../middleware/auth');
 const crypto = require('crypto');
+const PDFDocument = require('pdfkit');
 const { logAudit } = require('../utils/auditLog');
 const router = express.Router();
 router.use(authenticate); // all customer routes require login
@@ -151,5 +152,68 @@ router.delete('/:id', ownerOnly, async (req, res) => {
     res.status(500).json({ error: 'Server error deleting customer' });
   }
 });
+// GET /api/customers/balances/pdf
+// Simple snapshot: name + phone + current balance for every customer.
+// NO transaction history — just the final number per customer.
+router.get('/balances/pdf', ownerOnly, async (req, res) => {
+  try {
+    const result = await db.execute(`
+      SELECT name, phone, balance FROM customers
+      WHERE balance != 0
+      ORDER BY balance DESC
+    `);
+    const customers = result.rows;
 
+    const doc = new PDFDocument({ margin: 40, size: 'A4' });
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="all_balances.pdf"`);
+    doc.pipe(res);
+
+    doc.fontSize(18).text('All Customer Balances', { align: 'center' });
+    doc.moveDown(0.3);
+    const today = new Date().toISOString().split('T')[0];
+    doc.fontSize(11).fillColor('#555').text(`As of ${today}`, { align: 'center' });
+    doc.moveDown(1);
+
+    const totalOutstanding = customers.reduce((sum, c) => sum + (c.balance || 0), 0);
+    doc.fontSize(12).fillColor('#000')
+      .text(`Total Customers Listed: ${customers.length}`)
+      .text(`Total Outstanding: Rs ${totalOutstanding.toFixed(0)}`);
+    doc.moveDown(1);
+
+    let y = doc.y;
+    doc.fontSize(10).fillColor('#000');
+    doc.text('Name', 40, y, { width: 220 });
+    doc.text('Phone', 270, y, { width: 130 });
+    doc.text('Balance', 420, y, { width: 100 });
+    y += 16;
+    doc.moveTo(40, y).lineTo(555, y).stroke();
+    y += 6;
+
+    for (const c of customers) {
+      if (y > 770) {
+        doc.addPage();
+        y = 40;
+      }
+      const bal = c.balance || 0;
+      doc.fontSize(9).fillColor('#000').text(c.name || '', 40, y, { width: 220 });
+      doc.text(c.phone || 'No phone', 270, y, { width: 130 });
+      doc.fillColor(bal > 0 ? '#c0392b' : '#27ae60')
+        .text(`Rs ${bal.toFixed(0)}`, 420, y, { width: 100 });
+      y += 16;
+    }
+
+    // Total row
+    y += 6;
+    doc.moveTo(40, y).lineTo(555, y).stroke();
+    y += 8;
+    doc.fontSize(10).fillColor('#000').text('Total', 40, y, { width: 220 });
+    doc.text(`Rs ${totalOutstanding.toFixed(0)}`, 420, y, { width: 100 });
+
+    doc.end();
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Server error generating balances PDF' });
+  }
+});
 module.exports = router;
