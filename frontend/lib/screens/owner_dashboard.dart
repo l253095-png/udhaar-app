@@ -322,7 +322,7 @@ class _OwnerDashboardState extends State<OwnerDashboard> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const SignboardTitle(text:'bhenchodon ka khata'),
+        title: const SignboardTitle(text:'Dukaan Diaries'),
         actions: [
            IconButton(
             icon: const Icon(Icons.history),
