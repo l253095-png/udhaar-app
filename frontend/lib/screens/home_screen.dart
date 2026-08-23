@@ -10,6 +10,7 @@ import 'manage_users_screen.dart';
 import 'sync_history_screen.dart';
 import 'imported_entries_screen.dart';
 import '../theme/app_colors.dart';
+import 'net_summary_screen.dart';
 
 /// Owner's main landing screen after login — 5 module tiles + pending review badge.
 class HomeScreen extends StatefulWidget {
@@ -167,6 +168,13 @@ class _HomeScreenState extends State<HomeScreen> {
             tooltip: 'Sync History / Undo',
             onPressed: () {
               Navigator.of(context).push(MaterialPageRoute(builder: (_) => const SyncHistoryScreen()));
+            },
+          ),
+          IconButton(
+            icon: const Icon(Icons.account_balance_wallet),
+            tooltip: 'Monthly Net Summary',
+            onPressed: () {
+              Navigator.of(context).push(MaterialPageRoute(builder: (_) => const NetSummaryScreen()));
             },
           ),
           IconButton(
