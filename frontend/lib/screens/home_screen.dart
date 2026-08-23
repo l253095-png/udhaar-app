@@ -26,6 +26,7 @@ class _HomeScreenState extends State<HomeScreen> {
   double _monthlyExpenseTotal = 0.0;
   double _udhaarSystemTotal = 0.0;
   double _mainBranchPurchaseTotal = 0.0;
+  double _dailyOnlineMonthlyTotal = 0.0;
   bool _syncing = false;
   DateTime _now = DateTime.now();
   Timer? _clockTimer;
@@ -38,6 +39,7 @@ class _HomeScreenState extends State<HomeScreen> {
     _loadMonthlyExpenseTotal();
     _loadUdhaarSystemTotal();
     _loadMainBranchPurchaseTotal();
+     _loadDailyOnlineMonthlyTotal();  
     // Live clock — ticks every second so the on-screen time is always current,
     // and every new entry's timestamp can be visually cross-checked against it.
     _clockTimer = Timer.periodic(const Duration(seconds: 1), (_) {
@@ -91,6 +93,14 @@ class _HomeScreenState extends State<HomeScreen> {
     try {
       final data = await ApiService.getMonthlyExpenseTotal('daily_main_branch_purchase');
       if (mounted) setState(() => _mainBranchPurchaseTotal = (data['total'] as num).toDouble());
+    } catch (_) {
+      // ignore
+    }
+  }
+  Future<void> _loadDailyOnlineMonthlyTotal() async {
+    try {
+      final data = await ApiService.getMonthlyExpenseTotal('daily_online');
+      if (mounted) setState(() => _dailyOnlineMonthlyTotal = (data['total'] as num).toDouble());
     } catch (_) {
       // ignore
     }
@@ -212,6 +222,7 @@ class _HomeScreenState extends State<HomeScreen> {
             _loadMonthlyExpenseTotal(),
             _loadUdhaarSystemTotal(),
             _loadMainBranchPurchaseTotal(),
+            _loadDailyOnlineMonthlyTotal(),
           ]);
         },
         child: ListView(
@@ -299,6 +310,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   title: 'Daily Online',
                   icon: Icons.wifi,
                   color: Colors.blue,
+                  subtitle: 'Monthly: Rs ${_dailyOnlineMonthlyTotal.toStringAsFixed(0)}',
                   onTap: () => Navigator.of(context).push(MaterialPageRoute(
                       builder: (_) => const ExpenseListScreen(category: 'daily_online', title: 'Daily Online'))),
                 ),

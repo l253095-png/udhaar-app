@@ -48,13 +48,17 @@ class _NetSummaryScreenState extends State<NetSummaryScreen> {
     await prefs.setBool(flagKey, true);
 
     if (!mounted) return;
+    final net = (current['net'] as num).toDouble();
+    final owedLabel = net < 0 ? 'Dady ko dene hain' : 'Dady se lene hain';
+
+    if (!mounted) return;
     showDialog(
       context: context,
       builder: (_) => AlertDialog(
         title: const Text('Month Ending Today'),
         content: Text(
           'This is the last day of ${current['ym']}.\n\n'
-          'Net Total: Rs ${(current['net'] as num).toStringAsFixed(0)}\n\n'
+          '$owedLabel: Rs ${net.abs().toStringAsFixed(0)}\n\n'
           'Ready to share this with the CEO?',
         ),
         actions: [
@@ -85,6 +89,51 @@ class _NetSummaryScreenState extends State<NetSummaryScreen> {
     );
   }
 
+  /// Net total row with "Dady ko dene hain" / "Dady se lene hain" label.
+  /// net < 0  → owner owes CEO   → label BEFORE the amount
+  /// net >= 0 → CEO owes owner   → label AFTER the amount
+  Widget _netTotalRow(num netValue) {
+    final net = netValue.toDouble();
+    final isOwed = net < 0; // dady ko dene hain
+    final color = net >= 0 ? AppColors.truckGreen : AppColors.rickshawRed;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            const Text('Net Total', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+            Row(
+              children: [
+                if (isOwed)
+                  Padding(
+                    padding: const EdgeInsets.only(right: 6),
+                    child: Text(
+                      'Dady ko dene hain:',
+                      style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: color),
+                    ),
+                  ),
+                Text(
+                  'Rs ${net.abs().toStringAsFixed(0)}',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: color),
+                ),
+              ],
+            ),
+          ],
+        ),
+        if (!isOwed)
+          Align(
+            alignment: Alignment.centerRight,
+            child: Text(
+              'Dady se lene hain',
+              style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: color),
+            ),
+          ),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -110,7 +159,7 @@ class _NetSummaryScreenState extends State<NetSummaryScreen> {
                             _breakdownRow('Main Branch Purchase', _current!['mainBranch'], isNegative: true),
                             _breakdownRow('Other Expenses', _current!['expense'], isNegative: true),
                             const Divider(),
-                            _breakdownRow('Net Total', _current!['net'], isTotal: true),
+                            _netTotalRow(_current!['net']),
                           ],
                         ),
                       ),
@@ -121,18 +170,24 @@ class _NetSummaryScreenState extends State<NetSummaryScreen> {
                   if (_history.isEmpty)
                     const Text('No previous months yet', style: TextStyle(color: Colors.grey))
                   else
-                    ..._history.map((h) => Card(
-                          child: ListTile(
-                            title: Text(h['ym']),
-                            trailing: AnimatedBalanceText(
-                              value: (h['net'] as num).toDouble(),
-                              style: TextStyle(
-                                fontWeight: FontWeight.bold,
-                                color: (h['net'] as num) >= 0 ? AppColors.truckGreen : AppColors.rickshawRed,
-                              ),
-                            ),
+                    ..._history.map((h) {
+                      final net = (h['net'] as num).toDouble();
+                      final isOwed = net < 0;
+                      final color = net >= 0 ? AppColors.truckGreen : AppColors.rickshawRed;
+                      return Card(
+                        child: ListTile(
+                          title: Text(h['ym']),
+                          subtitle: Text(
+                            isOwed ? 'Dady ko dene hain' : 'Dady se lene hain',
+                            style: TextStyle(fontSize: 12, color: color),
                           ),
-                        )),
+                          trailing: AnimatedBalanceText(
+                            value: net.abs(),
+                            style: TextStyle(fontWeight: FontWeight.bold, color: color),
+                          ),
+                        ),
+                      );
+                    }),
                 ],
               ),
             ),
