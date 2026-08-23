@@ -8,6 +8,7 @@ import 'audit_history_screen.dart';
 import '../widgets/signboard_title.dart';
 import '../widgets/animated_balance_text.dart';
 import 'net_summary_screen.dart';
+import '../widgets/developer_credit_overlay.dart';
 class OwnerDashboard extends StatefulWidget {
   const OwnerDashboard({super.key});
 
@@ -20,6 +21,7 @@ class _OwnerDashboardState extends State<OwnerDashboard> {
   List<dynamic> _filteredCustomers = [];
   bool _loading = true;
   String _searchTerm = '';
+  bool _showCredit = true;
 
   // Filter and Sorting options
   String _filterType = 'all'; // 'all', 'has_balance', 'zero_balance'
@@ -320,7 +322,9 @@ class _OwnerDashboardState extends State<OwnerDashboard> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    return Stack(
+      children: [
+        Scaffold(
       appBar: AppBar(
         title: const SignboardTitle(text:'bhenchodon ka khata'),
         actions: [
@@ -558,6 +562,12 @@ class _OwnerDashboardState extends State<OwnerDashboard> {
           ),
         ],
       ),
+        ),
+        if (_showCredit)
+          DeveloperCreditOverlay(
+            onFinished: () => setState(() => _showCredit = false),
+          ),
+      ],
     );
   }
 }
