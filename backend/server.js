@@ -36,6 +36,13 @@ app.use('/api/sheets-sync', sheetsSyncRoutes);
 app.use('/api/expenses', expensesRoutes);
 app.use('/public/history', publicHistoryRoutes);
 app.use('/api/audit-log', auditLogRoutes); 
+
+// Lightweight health check — used by an external ping service (UptimeRobot / cron-job.org)
+// to keep the free Render instance from sleeping after 15 min of inactivity.
+app.get('/api/health', (req, res) => {
+  res.status(200).json({ status: 'ok' });
+});
+
 // Serve Flutter Web release build statically
 const webBuildPath = path.join(__dirname, '../frontend/build/web');
 app.use(express.static(webBuildPath));
