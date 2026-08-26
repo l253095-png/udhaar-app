@@ -102,6 +102,10 @@ function cellToGridCoords(cell) {
  * Colors the background of a specific cell (used on the customer NAME cell)
  * to visually show sync status directly in the Sheet, instead of text.
  * Fails silently (logs only) so it never breaks the main sync/approval flow.
+ *
+ * Used by the single-entry routes (approve/reject/staged approve/reject)
+ * where only one cell needs coloring at a time. For the bulk /run sync,
+ * use colorCellsBatch() instead — see the note there for why.
  */
 async function colorCell(sheetId, cell, color) {
   if (!sheetId || !cell || !color) return;
@@ -138,6 +142,56 @@ async function colorCell(sheetId, cell, color) {
     });
   } catch (err) {
     console.error('Failed to color Sheet cell (non-fatal):', err.message);
+  }
+}
+
+/**
+ * Colors MANY cells in ONE API call instead of one call per cell.
+ *
+ * WHY THIS EXISTS: the old bulk-sync code called colorCell() once per
+ * processed row, and colorCell() itself makes 2 API calls (a metadata
+ * .get() + a .batchUpdate()). With 5 sheet blocks and dozens of rows per
+ * sync, that added up to 60-100+ Google Sheets API calls in a few seconds
+ * — enough to trip Google's "Read requests per minute per user" quota.
+ * When that quota is hit mid-sync, everything after the failure point
+ * (including reading the D72/J72/N24 single cells) never runs, which is
+ * why "monthly_expense / daily_online / daily_main_branch_purchase"
+ * silently stopped syncing after the new O9:P19 block was added.
+ *
+ * This version fetches the sheet's grid ID ONCE, then bundles every
+ * cell-coloring request into a SINGLE batchUpdate call.
+ */
+async function colorCellsBatch(sheets, sheetId, gridSheetId, jobs) {
+  if (!jobs || jobs.length === 0) return;
+  try {
+    const requests = jobs
+      .map((job) => {
+        const coords = cellToGridCoords(job.cell);
+        if (!coords) return null;
+        return {
+          repeatCell: {
+            range: {
+              sheetId: gridSheetId,
+              startRowIndex: coords.row,
+              endRowIndex: coords.row + 1,
+              startColumnIndex: coords.col,
+              endColumnIndex: coords.col + 1,
+            },
+            cell: { userEnteredFormat: { backgroundColor: job.color } },
+            fields: 'userEnteredFormat.backgroundColor',
+          },
+        };
+      })
+      .filter(Boolean);
+
+    if (requests.length === 0) return;
+
+    await sheets.spreadsheets.batchUpdate({
+      spreadsheetId: sheetId,
+      requestBody: { requests },
+    });
+  } catch (err) {
+    console.error('Failed to batch-color Sheet cells (non-fatal):', err.message);
   }
 }
 
@@ -336,7 +390,21 @@ router.post('/run', async (req, res) => {
       tabName = 'Selected Sheet';
     }
 
-    const sheetTabTitle = await getFirstSheetName(sheetId);
+    // ---- ONE metadata call gives us BOTH the tab title AND the grid ID
+    // needed for coloring cells later. This replaces what used to be a
+    // separate getFirstSheetName() call PLUS a fresh metadata call inside
+    // colorCell() for every single colored row. ----
+    const metaRes = await sheets.spreadsheets.get({
+      spreadsheetId: sheetId,
+      fields: 'sheets(properties(sheetId,title))',
+    });
+    const sheetMetaList = metaRes.data.sheets || [];
+    if (sheetMetaList.length === 0) {
+      throw { error: 'The spreadsheet has no sheets.', errorCode: 'NO_SHEETS_IN_SPREADSHEET' };
+    }
+    const sheetTabTitle = sheetMetaList[0].properties.title;
+    const gridSheetId = sheetMetaList[0].properties.sheetId;
+
     const isoDate = todayIsoDate();
 
     const allCustomersRes = await db.execute('SELECT * FROM customers');
@@ -350,12 +418,24 @@ router.post('/run', async (req, res) => {
     const ignoredRes = await db.execute('SELECT normalized_name FROM ignored_sheet_names');
     const ignoredNames = new Set(ignoredRes.rows.map((r) => r.normalized_name));
 
-    for (const block of BLOCKS) {
-      const result = await sheets.spreadsheets.values.get({
-        spreadsheetId: sheetId,
-        range: `'${sheetTabTitle}'!${block.range}`,
-      });
-      const rows = result.data.values || [];
+    // ---- ONE batchGet call reads every BLOCK range AND every SINGLE_CELLS
+    // cell in a single request, instead of one .get() call per block plus a
+    // separate batchGet for the single cells (used to be 6 read calls,
+    // now it's 1). This is the main fix for the "Quota exceeded" error. ----
+    const blockRanges = BLOCKS.map((b) => `'${sheetTabTitle}'!${b.range}`);
+    const singleCellKeys = Object.keys(SINGLE_CELLS);
+    const singleCellRanges = singleCellKeys.map((key) => `'${sheetTabTitle}'!${SINGLE_CELLS[key]}`);
+    const allRanges = [...blockRanges, ...singleCellRanges];
+
+    const combinedBatchGet = await sheets.spreadsheets.values.batchGet({
+      spreadsheetId: sheetId,
+      ranges: allRanges,
+    });
+    const valueRanges = combinedBatchGet.data.valueRanges || [];
+
+    for (let blockIdx = 0; blockIdx < BLOCKS.length; blockIdx++) {
+      const block = BLOCKS[blockIdx];
+      const rows = (valueRanges[blockIdx] && valueRanges[blockIdx].values) || [];
       const startRow = parseInt(block.range.match(/^[A-Z]+(\d+):/)[1], 10);
       const startCol = block.range.match(/^([A-Z]+)/)[1];
 
@@ -421,21 +501,29 @@ router.post('/run', async (req, res) => {
       }
     }
 
-    for (const job of colorJobs) {
-      await colorCell(sheetId, job.cell, job.color);
-    }
+    // ---- ONE batchUpdate call colors every row's NAME cell, instead of
+    // one colorCell() call (= 2 API calls) PER ROW. ----
+    await colorCellsBatch(sheets, sheetId, gridSheetId, colorJobs);
 
-    const cellRefs = Object.values(SINGLE_CELLS).map((cell) => `'${sheetTabTitle}'!${cell}`);
-    const batchResult = await sheets.spreadsheets.values.batchGet({ spreadsheetId: sheetId, ranges: cellRefs });
-    const categories = Object.keys(SINGLE_CELLS);
-    for (let idx = 0; idx < categories.length; idx++) {
-      const category = categories[idx];
-      const valueRange = batchResult.data.valueRanges[idx];
-      if (!valueRange) continue;
+    // ---- Single cells (monthly_expense / daily_online / daily_main_branch_purchase)
+    // read from the SAME combined batchGet result above — no extra API call. ----
+    console.log(`[Sheets Sync] Reading single cells from tab "${sheetTabTitle}" in sheet "${tabName}":`);
+    for (let idx = 0; idx < singleCellKeys.length; idx++) {
+      const category = singleCellKeys[idx];
+      const cellRef = SINGLE_CELLS[category];
+      const valueRange = valueRanges[BLOCKS.length + idx];
+      if (!valueRange) {
+        console.log(`  - ${category} (${cellRef}): NO valueRange returned by Google Sheets API at all`);
+        continue;
+      }
       const raw = valueRange.values && valueRange.values[0] && valueRange.values[0][0];
       const amount = parseFloat(raw);
+      console.log(`  - ${category} (${cellRef}): raw="${raw}" -> parsed=${amount}`);
       if (!isNaN(amount)) {
         await upsertDailyExpense(category, isoDate, amount, req.user.id, tabName);
+        console.log(`    -> saved as expense, entry_date=${isoDate}`);
+      } else {
+        console.log(`    -> SKIPPED (not a valid number)`);
       }
     }
 
