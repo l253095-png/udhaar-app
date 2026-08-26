@@ -428,14 +428,23 @@ router.post('/run', async (req, res) => {
     const cellRefs = Object.values(SINGLE_CELLS).map((cell) => `'${sheetTabTitle}'!${cell}`);
     const batchResult = await sheets.spreadsheets.values.batchGet({ spreadsheetId: sheetId, ranges: cellRefs });
     const categories = Object.keys(SINGLE_CELLS);
+    console.log(`[Sheets Sync] Reading single cells from tab "${sheetTabTitle}" in sheet "${tabName}":`);
     for (let idx = 0; idx < categories.length; idx++) {
       const category = categories[idx];
+      const cellRef = Object.values(SINGLE_CELLS)[idx];
       const valueRange = batchResult.data.valueRanges[idx];
-      if (!valueRange) continue;
+      if (!valueRange) {
+        console.log(`  - ${category} (${cellRef}): NO valueRange returned by Google Sheets API at all`);
+        continue;
+      }
       const raw = valueRange.values && valueRange.values[0] && valueRange.values[0][0];
       const amount = parseFloat(raw);
+      console.log(`  - ${category} (${cellRef}): raw="${raw}" -> parsed=${amount}`);
       if (!isNaN(amount)) {
         await upsertDailyExpense(category, isoDate, amount, req.user.id, tabName);
+        console.log(`    -> saved as expense, entry_date=${isoDate}`);
+      } else {
+        console.log(`    -> SKIPPED (not a valid number)`);
       }
     }
 
