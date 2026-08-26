@@ -208,6 +208,8 @@ router.delete('/:id', ownerOnly, async (req, res) => {
 // System-wide PDF: every transaction in the date range, with the customer's
 // balance right after that specific transaction (walked back from their
 // CURRENT balance across their full history, then filtered to the range).
+// Credit/Debit totals for the selected range are printed at the END of the
+// PDF (after the full entry list), not at the top.
 router.get('/range-report/pdf', ownerOnly, async (req, res) => {
   try {
     const { start, end } = req.query;
@@ -261,14 +263,6 @@ router.get('/range-report/pdf', ownerOnly, async (req, res) => {
     doc.fontSize(11).fillColor('#555').text(`${start} to ${end}`, { align: 'center' });
     doc.moveDown(1);
 
-    const totalDebit = rangeTxns.filter(t => t.type === 'udhaar').reduce((s, t) => s + t.amount, 0);
-    const totalCredit = rangeTxns.filter(t => t.type === 'wasooli').reduce((s, t) => s + t.amount, 0);
-    doc.fontSize(12).fillColor('#000')
-      .text(`Total Debit (Udhaar): Rs ${totalDebit.toFixed(0)}`)
-      .text(`Total Credit (Wasooli): Rs ${totalCredit.toFixed(0)}`)
-      .text(`Total Entries: ${rangeTxns.length}`);
-    doc.moveDown(1);
-
     let y = doc.y;
     doc.fontSize(10).fillColor('#000');
     doc.text('Date', 40, y, { width: 90 });
@@ -297,6 +291,38 @@ router.get('/range-report/pdf', ownerOnly, async (req, res) => {
 
       y += 16;
     }
+
+    // ---- TOTALS SUMMARY — printed at the END of the report ----
+    const totalDebit = rangeTxns.filter(t => t.type === 'udhaar').reduce((s, t) => s + t.amount, 0);
+    const totalCredit = rangeTxns.filter(t => t.type === 'wasooli').reduce((s, t) => s + t.amount, 0);
+    const netChange = totalDebit - totalCredit;
+
+    const summaryBlockHeight = 100; // approx space needed for the summary box
+    if (y + summaryBlockHeight > 770) {
+      doc.addPage();
+      y = 40;
+    } else {
+      y += 10;
+    }
+
+    doc.moveTo(40, y).lineTo(555, y).stroke();
+    y += 14;
+
+    doc.fontSize(13).fillColor('#000').text('Summary', 40, y, { width: 515 });
+    y += 20;
+
+    doc.fontSize(11).fillColor('#c0392b')
+      .text(`Total Debit (Udhaar): Rs ${totalDebit.toFixed(0)}`, 40, y, { width: 250 });
+    doc.fillColor('#27ae60')
+      .text(`Total Credit (Wasooli): Rs ${totalCredit.toFixed(0)}`, 300, y, { width: 255 });
+    y += 18;
+
+    doc.fillColor('#000')
+      .text(`Net Change: Rs ${netChange.toFixed(0)} (${netChange >= 0 ? 'net udhaar increase' : 'net udhaar decrease'})`, 40, y, { width: 515 });
+    y += 18;
+
+    doc.fillColor('#000')
+      .text(`Total Entries: ${rangeTxns.length}`, 40, y, { width: 515 });
 
     doc.end();
   } catch (error) {

@@ -24,6 +24,8 @@ const BLOCKS = [
   // Wasooli (credit) - customer paid / cleared their khata
   { range: 'I2:J50', nameCol: 0, amountCol: 1, type: 'wasooli', key: 'wasooli1', markerCol: 'K' },
   { range: 'M2:N16', nameCol: 0, amountCol: 1, type: 'wasooli', key: 'wasooli2', markerCol: 'O' },
+  // Wasooli (credit) - "balance clear" payments, Shift 2 worker's column pair
+  { range: 'O9:P19', nameCol: 0, amountCol: 1, type: 'wasooli', key: 'wasooli3', markerCol: 'Q' },
 ];
 
 const SINGLE_CELLS = {
@@ -570,18 +572,6 @@ router.post('/bulk-reject', async (req, res) => {
 });
 
 // POST /api/sheets-sync/bulk-approve-as-create
-//
-// FIXED: this used to blindly create a brand new customer for every single
-// pending entry, even when the system already had a good suggested match
-// (pending.suggested_customer_id from the fuzzy-matcher in /run). That meant
-// one tap could silently create duplicate customers for names that already
-// existed (e.g. sheet name "298b" vs existing customer "ch akram 298b").
-//
-// New behavior:
-//   - If a pending entry HAS a suggested_customer_id -> link to that existing
-//     customer (moves to Imported Entries, no new customer created).
-//   - If a pending entry has NO suggestion -> leave it in the Pending list
-//     untouched, so the Owner can manually Link / Link By List / Create it.
 router.post('/bulk-approve-as-create', async (req, res) => {
   const { pendingIds } = req.body;
   if (!Array.isArray(pendingIds) || pendingIds.length === 0) {
@@ -601,8 +591,6 @@ router.post('/bulk-approve-as-create', async (req, res) => {
       if (!pending) continue;
 
       if (!pending.suggested_customer_id) {
-        // No confident match — leave it here for manual review instead of
-        // guessing and creating a possibly-duplicate customer.
         skippedCount++;
         continue;
       }
@@ -884,31 +872,5 @@ router.post('/staged/bulk-reject', async (req, res) => {
     res.status(500).json({ error: 'Failed to bulk reject staged entries', details: err.message });
   }
 });
-// GET /api/customers/:id/public-link - Owner only. Shareable, no-login link
-// to this customer's transaction history (token generated on first use).
-router.get('/:id/public-link', ownerOnly, async (req, res) => {
-  try {
-    const custResult = await db.execute({
-      sql: 'SELECT * FROM customers WHERE id = ?',
-      args: [req.params.id]
-    });
-    const customer = custResult.rows[0];
-    if (!customer) return res.status(404).json({ error: 'Customer not found' });
 
-    let token = customer.public_token;
-    if (!token) {
-      token = crypto.randomBytes(16).toString('hex');
-      await db.execute({
-        sql: 'UPDATE customers SET public_token = ? WHERE id = ?',
-        args: [token, req.params.id]
-      });
-    }
-
-    const base = process.env.PUBLIC_BASE_URL || 'https://udhaar-app.onrender.com';
-    res.json({ link: `${base}/public/history/${token}` });
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ error: 'Server error generating public link' });
-  }
-});
 module.exports = router;
