@@ -4,6 +4,19 @@ import '../services/api_service.dart';
 import '../theme/app_colors.dart';
 import '../widgets/animated_balance_text.dart';
 
+/// The backend stores `created_at` as a UTC timestamp (no timezone suffix,
+/// e.g. "2026-08-26 12:30:00"). Dart's DateTime.parse treats a string with
+/// no timezone marker as LOCAL time, which silently skips the UTC->local
+/// conversion and makes every displayed time lag behind by the device's
+/// UTC offset (5 hours behind in Pakistan, since PKT is UTC+5). This helper
+/// forces the string to be parsed as UTC, then converts it to the device's
+/// actual local time.
+DateTime _parseServerTimestamp(String raw) {
+  final normalized = raw.contains('T') ? raw : raw.replaceFirst(' ', 'T');
+  final withZ = normalized.endsWith('Z') ? normalized : '${normalized}Z';
+  return DateTime.parse(withZ).toLocal();
+}
+
 /// Shows a filtered list of transactions (e.g. "Today's Debit",
 /// "This Month's Credit") with a running total at the top.
 class TransactionReportScreen extends StatefulWidget {
@@ -84,7 +97,7 @@ class _TransactionReportScreenState extends State<TransactionReportScreen> {
                               final txnIsDebit = t['type'] == 'udhaar';
                               DateTime? d;
                               try {
-                                d = DateTime.parse(t['created_at']);
+                                d = _parseServerTimestamp(t['created_at']);
                               } catch (_) {}
                               return ListTile(
                                                                 leading: Icon(

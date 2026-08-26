@@ -1,7 +1,21 @@
-import 'package:flutter/material.dart';
+transimport 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../services/api_service.dart';
 import '../widgets/animated_balance_text.dart';
+
+/// The backend stores `created_at` as a UTC timestamp (no timezone suffix,
+/// e.g. "2026-08-26 12:30:00"). Dart's DateTime.parse treats a string with
+/// no timezone marker as LOCAL time, which silently skips the UTC->local
+/// conversion and makes every displayed time lag behind by the device's
+/// UTC offset (5 hours behind in Pakistan, since PKT is UTC+5). This helper
+/// forces the string to be parsed as UTC, then converts it to the device's
+/// actual local time.
+DateTime _parseServerTimestamp(String raw) {
+  final normalized = raw.contains('T') ? raw : raw.replaceFirst(' ', 'T');
+  final withZ = normalized.endsWith('Z') ? normalized : '${normalized}Z';
+  return DateTime.parse(withZ).toLocal();
+}
+
 /// Shows one customer's balance + full transaction history.
 /// If [readOnly] is true (Worker), the Credit/Debit buttons are hidden.
 class CustomerDetailScreen extends StatefulWidget {
@@ -39,8 +53,6 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
     }
   }
 
-  // Open Direct WhatsApp Reminder
-   // Open Direct WhatsApp Reminder
   Future<void> _sendWhatsAppReminder(double balance) async {
     final phone = _customer?['phone'] ?? '';
     final name = _customer?['name'] ?? 'Customer';
@@ -86,7 +98,6 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
     }
   }
 
-  // Date Range Picker Filter
   Future<void> _pickDateRange() async {
     final picked = await showDateRangePicker(
       context: context,
@@ -262,11 +273,10 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
     final balance = ((_customer!['balance'] as num?) ?? 0).toDouble();
     List<dynamic> rawTxns = _customer!['transactions'] as List<dynamic>? ?? [];
 
-    // Filter by Date Range
     List<dynamic> transactions = rawTxns.where((t) {
       if (_selectedDateRange == null) return true;
       try {
-        final dt = DateTime.parse(t['created_at']);
+        final dt = _parseServerTimestamp(t['created_at']);
         return dt.isAfter(_selectedDateRange!.start.subtract(const Duration(seconds: 1))) &&
             dt.isBefore(_selectedDateRange!.end.add(const Duration(days: 1)));
       } catch (_) {
@@ -274,10 +284,6 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
       }
     }).toList();
 
-    // Running balance per entry — "what the balance was right after this
-    // transaction happened". rawTxns comes newest-first from the backend,
-    // so we start from the CURRENT balance and walk backward, undoing each
-    // transaction's effect to get the balance as it stood before it.
     final Map<dynamic, double> balanceAfterMap = {};
     double _runningBalance = balance;
     for (final t in rawTxns) {
@@ -291,7 +297,6 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
       appBar: AppBar(
         title: Text(_customer!['name'] ?? 'Customer Detail'),
         actions: [
-          // Filter by Date Action
           IconButton(
             icon: Icon(
               _selectedDateRange != null ? Icons.filter_alt : Icons.filter_alt_outlined,
@@ -313,7 +318,6 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
         child: ListView(
           padding: EdgeInsets.zero,
           children: [
-            // TOP BALANCE CARD
             Container(
               width: double.infinity,
               padding: const EdgeInsets.all(20),
@@ -322,7 +326,7 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
                 children: [
                   Text(_customer!['phone'] ?? 'No phone', style: const TextStyle(color: Colors.grey)),
                   const SizedBox(height: 8),
-                                    AnimatedBalanceText(
+                  AnimatedBalanceText(
                     value: balance.abs(),
                     style: TextStyle(
                       fontSize: 32,
@@ -335,12 +339,10 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
                     style: const TextStyle(color: Colors.grey),
                   ),
                   const SizedBox(height: 12),
-
-                  // WhatsApp Reminder Button
                   if (balance > 0 && !widget.readOnly)
                     ElevatedButton.icon(
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF25D366), // WhatsApp Green
+                        backgroundColor: const Color(0xFF25D366),
                         foregroundColor: Colors.white,
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
                       ),
@@ -351,8 +353,6 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
                 ],
               ),
             ),
-
-            // ACTION BUTTONS (Debit / Credit)
             if (!widget.readOnly)
               Padding(
                 padding: const EdgeInsets.all(12.0),
@@ -386,8 +386,6 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
                   ],
                 ),
               ),
-
-            // DATE FILTER LABEL IF ACTIVE
             if (_selectedDateRange != null)
               Container(
                 color: Colors.orange.shade50,
@@ -406,10 +404,7 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
                   ],
                 ),
               ),
-
             const Divider(height: 1),
-
-            // TRANSACTIONS LIST
             if (transactions.isEmpty)
               const Padding(
                 padding: EdgeInsets.all(24.0),
@@ -422,8 +417,8 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
                 String? dateStr;
                 String? timeStr;
                 try {
-                  parsedDate = DateTime.parse(t['created_at']);
-                  dateStr = parsedDate.toString().split(' ')[0]; // YYYY-MM-DD
+                  parsedDate = _parseServerTimestamp(t['created_at']);
+                  dateStr = parsedDate.toString().split(' ')[0];
                   timeStr = '${parsedDate.hour.toString().padLeft(2, '0')}:${parsedDate.minute.toString().padLeft(2, '0')}';
                 } catch (_) {}
 

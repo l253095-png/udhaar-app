@@ -1,5 +1,24 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import '../services/api_service.dart';
+
+/// The backend stores `created_at` as a UTC timestamp (no timezone suffix,
+/// e.g. "2026-08-26 12:30:00"). Dart's DateTime.parse treats a string with
+/// no timezone marker as LOCAL time, which silently skips the UTC->local
+/// conversion and makes every displayed time lag behind by the device's
+/// UTC offset (5 hours behind in Pakistan, since PKT is UTC+5). This helper
+/// forces the string to be parsed as UTC, then converts it to the device's
+/// actual local time.
+DateTime? _parseServerTimestamp(String raw) {
+  if (raw.isEmpty) return null;
+  try {
+    final normalized = raw.contains('T') ? raw : raw.replaceFirst(' ', 'T');
+    final withZ = normalized.endsWith('Z') ? normalized : '${normalized}Z';
+    return DateTime.parse(withZ).toLocal();
+  } catch (_) {
+    return null;
+  }
+}
 
 /// Full audit trail — every add/edit/delete action across the system,
 /// newest first.
@@ -64,6 +83,8 @@ class _AuditHistoryScreenState extends State<AuditHistoryScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final dateFormat = DateFormat('dd MMM, hh:mm a');
+
     return Scaffold(
       appBar: AppBar(title: const Text('History')),
       body: RefreshIndicator(
@@ -82,7 +103,9 @@ class _AuditHistoryScreenState extends State<AuditHistoryScreen> {
                           final entityType = (log['entity_type'] ?? '').toString();
                           final description = (log['description'] ?? '').toString();
                           final performedBy = log['performed_by_name']?.toString() ?? 'Unknown';
-                          final createdAt = (log['created_at'] ?? '').toString();
+                          final rawCreatedAt = (log['created_at'] ?? '').toString();
+                          final parsedDate = _parseServerTimestamp(rawCreatedAt);
+                          final createdAtDisplay = parsedDate != null ? dateFormat.format(parsedDate) : rawCreatedAt;
 
                           return Card(
                             margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
@@ -90,7 +113,7 @@ class _AuditHistoryScreenState extends State<AuditHistoryScreen> {
                               leading: Icon(_actionIcon(action), color: _actionColor(action)),
                               title: Text(description, style: const TextStyle(fontSize: 13)),
                               subtitle: Text(
-                                '${entityType.toUpperCase()} - ${action.toUpperCase()} - by $performedBy\n$createdAt',
+                                '${entityType.toUpperCase()} - ${action.toUpperCase()} - by $performedBy\n$createdAtDisplay',
                                 style: const TextStyle(fontSize: 11, color: Colors.grey),
                               ),
                               isThreeLine: true,
