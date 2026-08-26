@@ -1,4 +1,4 @@
-transimport 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../services/api_service.dart';
 import '../widgets/animated_balance_text.dart';
