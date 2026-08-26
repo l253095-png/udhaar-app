@@ -29,7 +29,7 @@ const BLOCKS = [
 ];
 
 const SINGLE_CELLS = {
-  monthly_expense: 'D51',
+  monthly_expense: 'D72',
   daily_online: 'J72',
   daily_main_branch_purchase: 'N24',
 };
