@@ -3,6 +3,7 @@ import 'package:intl/intl.dart';
 import '../services/api_service.dart';
 import '../theme/app_colors.dart';
 import '../widgets/animated_balance_text.dart';
+
 class ExpenseListScreen extends StatefulWidget {
   final String category;
   final String title;
@@ -110,34 +111,68 @@ class _ExpenseListScreenState extends State<ExpenseListScreen> {
     }
   }
 
+  Widget _entryTile(Map<String, dynamic> e, DateFormat dateFormat) {
+    DateTime? d;
+    try {
+      d = DateTime.parse(e['entry_date']);
+    } catch (_) {}
+    return ListTile(
+      title: Text('Rs ${(e['amount'] as num).toStringAsFixed(0)}'),
+      subtitle: Text(
+        [
+          if (e['note'] != null && e['note'].toString().isNotEmpty) e['note'],
+          if (d != null) dateFormat.format(d),
+        ].join(' · '),
+      ),
+      trailing: PopupMenuButton<String>(
+        onSelected: (value) {
+          if (value == 'edit') _showEntryDialog(existing: e);
+          if (value == 'delete') _delete(e['id']);
+        },
+        itemBuilder: (_) => [
+          const PopupMenuItem(value: 'edit', child: Text('Edit')),
+          const PopupMenuItem(value: 'delete', child: Text('Delete')),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final dateFormat = DateFormat('dd MMM yyyy');
     final now = DateTime.now();
 
-    // Only count/show entries from the current month (this screen is a running monthly view).
-    final currentMonthEntries = _entries.where((e) {
+    // Group ALL entries by calendar month (yyyy-MM), so nothing is ever
+    // hidden — it just moves into "Previous Months" once the month ends.
+    final Map<String, List<dynamic>> byMonth = {};
+    for (final e in _entries) {
+      DateTime? d;
       try {
-        final d = DateTime.parse(e['entry_date']);
-        return d.year == now.year && d.month == now.month;
+        d = DateTime.parse(e['entry_date']);
       } catch (_) {
-        return false;
+        continue;
       }
-    }).toList();
+      final key = '${d.year}-${d.month.toString().padLeft(2, '0')}';
+      byMonth.putIfAbsent(key, () => []).add(e);
+    }
 
+    final currentKey = '${now.year}-${now.month.toString().padLeft(2, '0')}';
+    final currentMonthEntries = byMonth[currentKey] ?? [];
     final total = currentMonthEntries.fold<double>(0, (sum, e) => sum + (e['amount'] as num).toDouble());
-    final displayEntries = currentMonthEntries;
+
+    final previousKeys = byMonth.keys.where((k) => k != currentKey).toList()
+      ..sort((a, b) => b.compareTo(a)); // most recent previous month first
 
     return Scaffold(
       appBar: AppBar(title: Text(widget.title)),
-            floatingActionButton: FloatingActionButton.extended(
+      floatingActionButton: FloatingActionButton.extended(
         onPressed: () => _showEntryDialog(),
         backgroundColor: AppColors.marigold,
         foregroundColor: AppColors.deepIndigo,
         icon: const Icon(Icons.add),
         label: const Text('Add Entry'),
       ),
-           body: _loading
+      body: _loading
           ? const Center(child: CircularProgressIndicator())
           : Column(
               children: [
@@ -157,37 +192,45 @@ class _ExpenseListScreenState extends State<ExpenseListScreen> {
                   ),
                 ),
                 Expanded(
-                  child: displayEntries.isEmpty
-                      ? const Center(child: Text('No entries yet this month', style: TextStyle(color: Colors.grey)))
-                      : ListView.builder(
-                          itemCount: displayEntries.length,
-                          itemBuilder: (context, index) {
-                            final e = displayEntries[index];
-                            DateTime? d;
-                            try {
-                              d = DateTime.parse(e['entry_date']);
-                            } catch (_) {}
-                            return ListTile(
-                              title: Text('Rs ${(e['amount'] as num).toStringAsFixed(0)}'),
-                              subtitle: Text(
-                                [
-                                  if (e['note'] != null && e['note'].toString().isNotEmpty) e['note'],
-                                  if (d != null) dateFormat.format(d),
-                                ].join(' · '),
-                              ),
-                              trailing: PopupMenuButton<String>(
-                                onSelected: (value) {
-                                  if (value == 'edit') _showEntryDialog(existing: e);
-                                  if (value == 'delete') _delete(e['id']);
-                                },
-                                itemBuilder: (_) => [
-                                  const PopupMenuItem(value: 'edit', child: Text('Edit')),
-                                  const PopupMenuItem(value: 'delete', child: Text('Delete')),
+                  child: ListView(
+                    children: [
+                      if (currentMonthEntries.isEmpty)
+                        const Padding(
+                          padding: EdgeInsets.symmetric(vertical: 24),
+                          child: Center(child: Text('No entries yet this month', style: TextStyle(color: Colors.grey))),
+                        )
+                      else
+                        ...currentMonthEntries.map((e) => _entryTile(e, dateFormat)),
+
+                      if (previousKeys.isNotEmpty) ...[
+                        const Padding(
+                          padding: EdgeInsets.fromLTRB(16, 20, 16, 8),
+                          child: Text('Previous Months', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                        ),
+                        ...previousKeys.map((key) {
+                          final monthEntries = byMonth[key]!;
+                          final monthTotal = monthEntries.fold<double>(0, (sum, e) => sum + (e['amount'] as num).toDouble());
+                          final label = DateFormat('MMMM yyyy').format(DateTime.parse('$key-01'));
+                          return Card(
+                            margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                            child: ExpansionTile(
+                              title: Text(label, style: const TextStyle(fontWeight: FontWeight.w600)),
+                              trailing: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Text('Rs ${monthTotal.toStringAsFixed(0)}',
+                                      style: const TextStyle(fontWeight: FontWeight.bold, color: AppColors.deepIndigo)),
+                                  const SizedBox(width: 4),
+                                  const Icon(Icons.expand_more, size: 20),
                                 ],
                               ),
-                            );
-                          },
-                        ),
+                              children: monthEntries.map((e) => _entryTile(e, dateFormat)).toList(),
+                            ),
+                          );
+                        }),
+                      ],
+                    ],
+                  ),
                 ),
               ],
             ),
