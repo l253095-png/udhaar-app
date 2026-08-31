@@ -22,6 +22,7 @@ const sheetsSyncRoutes = require('./routes/sheetsSync');
 const expensesRoutes = require('./routes/expenses');
 const publicHistoryRoutes = require('./routes/publicHistory');
 const auditLogRoutes = require('./routes/auditLog'); 
+const snapshotRoutes = require('./routes/snapshots');
 const path = require('path');
 
 const app = express();
@@ -36,6 +37,7 @@ app.use('/api/sheets-sync', sheetsSyncRoutes);
 app.use('/api/expenses', expensesRoutes);
 app.use('/public/history', publicHistoryRoutes);
 app.use('/api/audit-log', auditLogRoutes); 
+app.use('/api/snapshots', snapshotRoutes);
 
 // Lightweight health check — used by an external ping service (UptimeRobot / cron-job.org)
 // to keep the free Render instance from sleeping after 15 min of inactivity.

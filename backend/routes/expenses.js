@@ -1,6 +1,7 @@
 const express = require('express');
 const { db } = require('../config/db');
 const { authenticate, ownerOnly } = require('../middleware/auth');
+const { logAudit } = require('../utils/auditLog');
 
 const router = express.Router();
 router.use(authenticate, ownerOnly); // entire module is Owner-only
@@ -84,7 +85,7 @@ router.get('/net-summary', async (req, res) => {
               SUM(CASE WHEN category='daily_main_branch_purchase' THEN amount ELSE 0 END) as mainBranch,
               SUM(CASE WHEN category='monthly_expense' THEN amount ELSE 0 END) as expense
             FROM expenses
-            WHERE strftime('%Y-%m', entry_date) = ?`,
+            WHERE strftime('%Y-%m', entry_date) = ? AND settled_at IS NULL`,
       args: [ym]
     });
 
@@ -103,6 +104,57 @@ router.get('/net-summary', async (req, res) => {
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: 'Server error fetching net summary' });
+  }
+});
+
+// POST /api/expenses/net-summary/settle
+// "Clear balance" icon on the Monthly Net Summary screen.
+// Marks all of THIS MONTH'S currently-unsettled entries as settled (settled_at = now),
+// so the live "This Month" total goes back to Rs 0 going forward — WITHOUT deleting
+// any rows, so "Previous Months" history and the audit log stay accurate forever.
+// Nothing here is destructive: it's a checkpoint, not a delete.
+router.post('/net-summary/settle', async (req, res) => {
+  try {
+    const now = new Date();
+    const ym = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+
+    const result = await db.execute({
+      sql: `SELECT
+              SUM(CASE WHEN category='daily_online' THEN amount ELSE 0 END) as online,
+              SUM(CASE WHEN category='daily_main_branch_purchase' THEN amount ELSE 0 END) as mainBranch,
+              SUM(CASE WHEN category='monthly_expense' THEN amount ELSE 0 END) as expense
+            FROM expenses
+            WHERE strftime('%Y-%m', entry_date) = ? AND settled_at IS NULL`,
+      args: [ym]
+    });
+    const row = result.rows[0] || {};
+    const online = row.online || 0;
+    const mainBranch = row.mainBranch || 0;
+    const expense = row.expense || 0;
+    const net = online - mainBranch - expense;
+
+    if (online === 0 && mainBranch === 0 && expense === 0) {
+      return res.status(400).json({ error: 'Nothing to clear — this month already has no unsettled entries.' });
+    }
+
+    await db.execute({
+      sql: `UPDATE expenses SET settled_at = datetime('now', 'localtime')
+            WHERE strftime('%Y-%m', entry_date) = ? AND settled_at IS NULL`,
+      args: [ym]
+    });
+
+    await logAudit(
+      'net_summary',
+      null,
+      'settle',
+      `Monthly Net Summary cleared for ${ym}: Online Rs ${online.toFixed(0)}, Main Branch Rs ${mainBranch.toFixed(0)}, Expenses Rs ${expense.toFixed(0)}, Net Rs ${net.toFixed(0)} settled`,
+      req.user.id
+    );
+
+    res.json({ message: 'Cleared', ym, online, mainBranch, expense, net });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Server error settling net summary' });
   }
 });
 

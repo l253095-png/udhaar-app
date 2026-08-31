@@ -130,6 +130,18 @@ async function initDb() {
       created_at TEXT DEFAULT (datetime('now', 'localtime')),
       FOREIGN KEY (performed_by) REFERENCES users(id)
     );
+
+    CREATE TABLE IF NOT EXISTS financial_snapshots (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      snapshot_date TEXT DEFAULT (date('now', 'localtime')),
+      stock_position REAL NOT NULL,
+      cash_on_hand REAL NOT NULL,
+      udhaar_total REAL NOT NULL,
+      total REAL NOT NULL,
+      created_by INTEGER,
+      created_at TEXT DEFAULT (datetime('now', 'localtime')),
+      FOREIGN KEY (created_by) REFERENCES users(id)
+    );
   `);
 
   // ---- Lightweight migrations ----
@@ -149,6 +161,7 @@ async function initDb() {
   await addColumnIfMissing('pending_sheet_syncs', 'marker_cell', 'TEXT');
   await addColumnIfMissing('pending_sheet_syncs', 'tab_name', 'TEXT');
   await addColumnIfMissing('customers', 'public_token', 'TEXT');
+  await addColumnIfMissing('expenses', 'settled_at', 'TEXT'); // marks entries "cleared" via Monthly Net Summary's clear icon
 
   // ---- Fix ignored_sheet_names ----
   async function fixIgnoredSheetNamesSchema() {
