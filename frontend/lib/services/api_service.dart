@@ -258,6 +258,44 @@ class ApiService {
     }
     return jsonDecode(res.body);
   }
+
+  /// "Clear balance" — settles this month's currently-unsettled net summary entries.
+  static Future<Map<String, dynamic>> settleNetSummary() async {
+    final res = await http.post(Uri.parse('$baseUrl/api/expenses/net-summary/settle'), headers: await _headers());
+    if (res.statusCode != 200) {
+      throw Exception(jsonDecode(res.body)['error'] ?? 'Failed to clear balance');
+    }
+    return jsonDecode(res.body);
+  }
+
+  // ---- Financial Snapshots (15-day Stock / Cash / Udhaar entries) ----
+  static Future<List<dynamic>> getFinancialSnapshots() async {
+    final res = await http.get(Uri.parse('$baseUrl/api/snapshots'), headers: await _headers());
+    if (res.statusCode != 200) {
+      throw Exception(jsonDecode(res.body)['error'] ?? 'Failed to fetch snapshots');
+    }
+    return jsonDecode(res.body);
+  }
+
+  static Future<Map<String, dynamic>> getSnapshotStatus() async {
+    final res = await http.get(Uri.parse('$baseUrl/api/snapshots/status'), headers: await _headers());
+    if (res.statusCode != 200) {
+      throw Exception(jsonDecode(res.body)['error'] ?? 'Failed to fetch snapshot status');
+    }
+    return jsonDecode(res.body);
+  }
+
+  static Future<Map<String, dynamic>> addFinancialSnapshot(double stockPosition, double cashOnHand) async {
+    final res = await http.post(
+      Uri.parse('$baseUrl/api/snapshots'),
+      headers: await _headers(),
+      body: jsonEncode({'stockPosition': stockPosition, 'cashOnHand': cashOnHand}),
+    );
+    if (res.statusCode != 201) {
+      throw Exception(jsonDecode(res.body)['error'] ?? 'Failed to add snapshot');
+    }
+    return jsonDecode(res.body);
+  }
   static Future<void> addExpense(String category, double amount, String note) async {
     final res = await http.post(
       Uri.parse('$baseUrl/api/expenses/$category'),

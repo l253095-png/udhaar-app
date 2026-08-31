@@ -11,6 +11,7 @@ import 'sync_history_screen.dart';
 import 'imported_entries_screen.dart';
 import '../theme/app_colors.dart';
 import 'net_summary_screen.dart';
+import 'financial_snapshot_screen.dart';
 
 /// Owner's main landing screen after login — 5 module tiles + pending review badge.
 class HomeScreen extends StatefulWidget {
@@ -27,6 +28,8 @@ class _HomeScreenState extends State<HomeScreen> {
   double _udhaarSystemTotal = 0.0;
   double _mainBranchPurchaseTotal = 0.0;
   double _dailyOnlineMonthlyTotal = 0.0;
+  bool _snapshotDue = false;
+  int? _daysSinceSnapshot;
   bool _syncing = false;
   DateTime _now = DateTime.now();
   Timer? _clockTimer;
@@ -40,6 +43,7 @@ class _HomeScreenState extends State<HomeScreen> {
     _loadUdhaarSystemTotal();
     _loadMainBranchPurchaseTotal();
      _loadDailyOnlineMonthlyTotal();  
+    _loadSnapshotStatus();
     // Live clock — ticks every second so the on-screen time is always current,
     // and every new entry's timestamp can be visually cross-checked against it.
     _clockTimer = Timer.periodic(const Duration(seconds: 1), (_) {
@@ -86,6 +90,20 @@ class _HomeScreenState extends State<HomeScreen> {
       if (mounted) setState(() => _udhaarSystemTotal = total);
     } catch (_) {
       // ignore
+    }
+  }
+
+  Future<void> _loadSnapshotStatus() async {
+    try {
+      final status = await ApiService.getSnapshotStatus();
+      if (mounted) {
+        setState(() {
+          _snapshotDue = status['due'] == true;
+          _daysSinceSnapshot = status['daysSince'];
+        });
+      }
+    } catch (_) {
+      // ignore - reminder just won't show if this fails
     }
   }
 
@@ -223,6 +241,7 @@ class _HomeScreenState extends State<HomeScreen> {
             _loadUdhaarSystemTotal(),
             _loadMainBranchPurchaseTotal(),
             _loadDailyOnlineMonthlyTotal(),
+            _loadSnapshotStatus(),
           ]);
         },
         child: ListView(
@@ -322,6 +341,20 @@ class _HomeScreenState extends State<HomeScreen> {
                   onTap: () => Navigator.of(context).push(MaterialPageRoute(
                       builder: (_) => const ExpenseListScreen(
                           category: 'daily_main_branch_purchase', title: 'Main Branch Purchase'))),
+                ),
+                _ModuleTile(
+                  title: 'Stock / Cash / Udhaar',
+                  icon: Icons.pie_chart,
+                  color: AppColors.gulabiPink,
+                  subtitle: _snapshotDue
+                      ? (_daysSinceSnapshot == null
+                          ? 'Pehli entry dalain'
+                          : '$_daysSinceSnapshot din ho gaye — Due!')
+                      : 'Har 15 din entry karein',
+                  onTap: () async {
+                    await Navigator.of(context).push(MaterialPageRoute(builder: (_) => const FinancialSnapshotScreen()));
+                    _loadSnapshotStatus();
+                  },
                 ),
               ],
             ),

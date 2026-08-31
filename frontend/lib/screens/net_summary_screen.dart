@@ -69,6 +69,74 @@ class _NetSummaryScreenState extends State<NetSummaryScreen> {
     );
   }
 
+  Future<void> _confirmAndClearBalance() async {
+    if (_current == null) return;
+    final net = (_current!['net'] as num).toDouble();
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('Clear This Month\'s Balance?'),
+        content: Text(
+          'This will mark this month\'s Online, Main Branch Purchase and Expense '
+          'entries as settled (as if paid to Dady).\n\n'
+          'Current Net: Rs ${net.abs().toStringAsFixed(0)} ${net < 0 ? '(ko dene hain)' : '(se lene hain)'}\n\n'
+          'Old entries stay safely in the audit log — nothing gets deleted. '
+          'This just resets the live "This Month" total to Rs 0 going forward.',
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: AppColors.rickshawRed, foregroundColor: Colors.white),
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Clear Balance'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+
+    try {
+      final result = await ApiService.settleNetSummary();
+      if (!mounted) return;
+      _showSettledConfirmation(result);
+      _load();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed: $e')));
+    }
+  }
+
+  /// After settling, show exactly what was paid/received so it's clear
+  /// the old khata is closed and a fresh one has started.
+  void _showSettledConfirmation(Map<String, dynamic> result) {
+    final net = (result['net'] as num).toDouble();
+    final isOwed = net < 0; // dady ko dene hain
+    final amount = net.abs().toStringAsFixed(0);
+    final color = isOwed ? AppColors.rickshawRed : AppColors.truckGreen;
+    final message = isOwed
+        ? 'Rs $amount Dady ko de diye hain.'
+        : 'Rs $amount Dady se le liye hain.';
+
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: Row(
+          children: [
+            Icon(Icons.check_circle, color: color),
+            const SizedBox(width: 8),
+            const Text('Cleared'),
+          ],
+        ),
+        content: Text(
+          '$message\n\nYe mahine ka khata ab band ho gaya hai — naya khata Rs 0 se shuru ho gaya hai.',
+        ),
+        actions: [
+          ElevatedButton(onPressed: () => Navigator.pop(context), child: const Text('OK')),
+        ],
+      ),
+    );
+  }
+
   Widget _breakdownRow(String label, num value, {bool isNegative = false, bool isTotal = false}) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),
@@ -137,7 +205,16 @@ class _NetSummaryScreenState extends State<NetSummaryScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Monthly Net Summary')),
+      appBar: AppBar(
+        title: const Text('Monthly Net Summary'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.cleaning_services),
+            tooltip: 'Clear Balance',
+            onPressed: _current == null ? null : _confirmAndClearBalance,
+          ),
+        ],
+      ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : RefreshIndicator(
