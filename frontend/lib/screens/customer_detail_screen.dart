@@ -3,19 +3,14 @@ import 'package:url_launcher/url_launcher.dart';
 import '../services/api_service.dart';
 import '../widgets/animated_balance_text.dart';
 
-/// The backend stores `created_at` as a UTC timestamp (no timezone suffix,
-/// e.g. "2026-08-26 12:30:00"). Dart's DateTime.parse treats a string with
-/// no timezone marker as LOCAL time, which silently skips the UTC->local
-/// conversion and makes every displayed time lag behind by the device's
-/// UTC offset (5 hours behind in Pakistan, since PKT is UTC+5). This helper
-/// forces the string to be parsed as UTC, then converts it to the device's
-/// actual local time.
+/// The backend now stores `created_at` already as Pakistan wall-clock time
+/// (fixed via backend/utils/dateHelper.js — no more UTC storage). So we
+/// parse it directly, with NO timezone conversion — the string already
+/// says exactly what time it was in Pakistan.
 DateTime _parseServerTimestamp(String raw) {
   final normalized = raw.contains('T') ? raw : raw.replaceFirst(' ', 'T');
-  final withZ = normalized.endsWith('Z') ? normalized : '${normalized}Z';
-  return DateTime.parse(withZ).toLocal();
+  return DateTime.parse(normalized);
 }
-
 /// Shows one customer's balance + full transaction history.
 /// If [readOnly] is true (Worker), the Credit/Debit buttons are hidden.
 class CustomerDetailScreen extends StatefulWidget {

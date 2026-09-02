@@ -259,7 +259,7 @@ class ApiService {
     return jsonDecode(res.body);
   }
 
-  /// "Clear balance" — settles this month's currently-unsettled net summary entries.
+  /// "Clear balance" â€” settles this month's currently-unsettled net summary entries.
   static Future<Map<String, dynamic>> settleNetSummary() async {
     final res = await http.post(Uri.parse('$baseUrl/api/expenses/net-summary/settle'), headers: await _headers());
     if (res.statusCode != 200) {
@@ -407,8 +407,18 @@ class ApiService {
     return data['count'] ?? 0;
   }
 
-  static Future<void> approveStagedEntry(int id) async {
-    final res = await http.post(Uri.parse('$baseUrl/api/sheets-sync/staged/$id/approve'), headers: await _headers());
+  /// entryDate: 'YYYY-MM-DD', entryTime: 'HH:MM' â€” both optional.
+  /// If omitted, the backend uses the current Pakistan time (unchanged behavior).
+  static Future<void> approveStagedEntry(int id, {String? entryDate, String? entryTime}) async {
+    final Map<String, dynamic> body = {};
+    if (entryDate != null) body['entryDate'] = entryDate;
+    if (entryTime != null) body['entryTime'] = entryTime;
+
+    final res = await http.post(
+      Uri.parse('$baseUrl/api/sheets-sync/staged/$id/approve'),
+      headers: await _headers(),
+      body: jsonEncode(body),
+    );
     if (res.statusCode != 200) {
       throw Exception(jsonDecode(res.body)['error'] ?? 'Failed to approve entry');
     }
@@ -421,8 +431,18 @@ class ApiService {
     }
   }
 
-  static Future<Map<String, dynamic>> bulkApproveStagedEntries() async {
-    final res = await http.post(Uri.parse('$baseUrl/api/sheets-sync/staged/bulk-approve'), headers: await _headers());
+  /// entryDate: 'YYYY-MM-DD', entryTime: 'HH:MM' â€” both optional.
+  /// Applies the SAME chosen date/time to every currently-staged entry.
+  static Future<Map<String, dynamic>> bulkApproveStagedEntries({String? entryDate, String? entryTime}) async {
+    final Map<String, dynamic> body = {};
+    if (entryDate != null) body['entryDate'] = entryDate;
+    if (entryTime != null) body['entryTime'] = entryTime;
+
+    final res = await http.post(
+      Uri.parse('$baseUrl/api/sheets-sync/staged/bulk-approve'),
+      headers: await _headers(),
+      body: jsonEncode(body),
+    );
     final data = jsonDecode(res.body);
     if (res.statusCode != 200) {
       throw Exception(data['error'] ?? 'Failed to bulk approve');

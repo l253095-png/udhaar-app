@@ -3,7 +3,7 @@ import 'package:intl/intl.dart';
 import '../services/api_service.dart';
 import '../theme/app_colors.dart';
 import '../widgets/animated_balance_text.dart';
-/// Every entry from a Sheet sync lands here first — NOT in the customer's
+/// Every entry from a Sheet sync lands here first â€” NOT in the customer's
 /// balance yet. The Owner reviews and approves each one (or Approves All)
 /// before it actually counts as a real transaction.
 class ImportedEntriesScreen extends StatefulWidget {
@@ -16,6 +16,10 @@ class ImportedEntriesScreen extends StatefulWidget {
 class _ImportedEntriesScreenState extends State<ImportedEntriesScreen> {
   List<dynamic> _entries = [];
   bool _loading = true;
+
+  // The date/time that will be stamped on every entry approved from here.
+  // Defaults to "right now" so normal same-day approvals need zero taps.
+  DateTime _selectedDateTime = DateTime.now();
 
   @override
   void initState() {
@@ -35,12 +39,66 @@ class _ImportedEntriesScreenState extends State<ImportedEntriesScreen> {
     }
   }
 
+  /// Lets the Owner pick a date, then a time, for the entries about to be
+  /// approved. Used for backdating sheet entries to their real date.
+  Future<void> _pickEntryDateTime() async {
+    final pickedDate = await showDatePicker(
+      context: context,
+      initialDate: _selectedDateTime,
+      firstDate: DateTime(2020),
+      lastDate: DateTime.now().add(const Duration(days: 1)),
+      helpText: 'Select entry date',
+    );
+    if (pickedDate == null) return;
+
+    if (!mounted) return;
+    final pickedTime = await showTimePicker(
+      context: context,
+      initialTime: TimeOfDay.fromDateTime(_selectedDateTime),
+      helpText: 'Select entry time',
+    );
+    if (pickedTime == null) return;
+
+    setState(() {
+      _selectedDateTime = DateTime(
+        pickedDate.year,
+        pickedDate.month,
+        pickedDate.day,
+        pickedTime.hour,
+        pickedTime.minute,
+      );
+    });
+  }
+
+  /// Resets the picker back to "now" (used by the small reset icon).
+  void _resetToNow() {
+    setState(() => _selectedDateTime = DateTime.now());
+  }
+
+  String get _selectedDateStr =>
+      '${_selectedDateTime.year}-${_selectedDateTime.month.toString().padLeft(2, '0')}-${_selectedDateTime.day.toString().padLeft(2, '0')}';
+
+  String get _selectedTimeStr =>
+      '${_selectedDateTime.hour.toString().padLeft(2, '0')}:${_selectedDateTime.minute.toString().padLeft(2, '0')}';
+
+  bool get _isBackdated {
+    final now = DateTime.now();
+    // Treat anything more than ~2 minutes away from "now" as an intentional
+    // backdate/forward-date choice, so the badge doesn't flicker on for
+    // ordinary same-moment approvals.
+    return _selectedDateTime.difference(now).abs() > const Duration(minutes: 2);
+  }
+
   Future<void> _approve(Map<String, dynamic> item) async {
     try {
-      await ApiService.approveStagedEntry(item['id']);
+      await ApiService.approveStagedEntry(
+        item['id'],
+        entryDate: _selectedDateStr,
+        entryTime: _selectedTimeStr,
+      );
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('${item['customer_name']} — applied to balance')),
+          SnackBar(content: Text('${item['customer_name']} â€” applied to balance')),
         );
       }
       _load();
@@ -79,11 +137,15 @@ class _ImportedEntriesScreenState extends State<ImportedEntriesScreen> {
 
   Future<void> _approveAll() async {
     if (_entries.isEmpty) return;
+    final dateTimeLabel = DateFormat('dd MMM yyyy, hh:mm a').format(_selectedDateTime);
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (_) => AlertDialog(
         title: const Text('Approve All Imported Entries?'),
-        content: Text('All ${_entries.length} entries will be applied to their customers\' balances right now.'),
+        content: Text(
+          'All ${_entries.length} entries will be applied to their customers\' balances, '
+          'dated: $dateTimeLabel.',
+        ),
         actions: [
           TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
           ElevatedButton(
@@ -96,7 +158,10 @@ class _ImportedEntriesScreenState extends State<ImportedEntriesScreen> {
     );
     if (confirmed != true) return;
     try {
-      final result = await ApiService.bulkApproveStagedEntries();
+      final result = await ApiService.bulkApproveStagedEntries(
+        entryDate: _selectedDateStr,
+        entryTime: _selectedTimeStr,
+      );
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(result['message'] ?? 'Approved all')));
       }
@@ -217,7 +282,55 @@ class _ImportedEntriesScreenState extends State<ImportedEntriesScreen> {
           ? const Center(child: CircularProgressIndicator())
           : Column(
               children: [
-                                Container(
+                // ---- Entry Date/Time picker â€” controls what date/time gets
+                // stamped on every entry approved from this screen (single or
+                // bulk). Defaults to "now", so normal use needs no taps. ----
+                Material(
+                  color: _isBackdated ? Colors.orange.shade50 : Colors.blue.shade50,
+                  child: InkWell(
+                    onTap: _pickEntryDateTime,
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                      child: Row(
+                        children: [
+                          Icon(
+                            _isBackdated ? Icons.event : Icons.access_time,
+                            size: 20,
+                            color: _isBackdated ? Colors.orange.shade800 : Colors.blueGrey,
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  _isBackdated ? 'Entries will be dated:' : 'Entry date/time (tap to change)',
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    color: _isBackdated ? Colors.orange.shade800 : Colors.grey.shade600,
+                                  ),
+                                ),
+                                Text(
+                                  DateFormat('dd MMM yyyy, hh:mm a').format(_selectedDateTime),
+                                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                                ),
+                              ],
+                            ),
+                          ),
+                          if (_isBackdated)
+                            IconButton(
+                              icon: const Icon(Icons.restore, size: 20),
+                              tooltip: 'Reset to now',
+                              onPressed: _resetToNow,
+                            )
+                          else
+                            const Icon(Icons.chevron_right, color: Colors.grey),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+                Container(
                   width: double.infinity,
                   padding: const EdgeInsets.all(16),
                   color: AppColors.marigold.withOpacity(0.12),
@@ -312,7 +425,7 @@ class _ImportedEntriesScreenState extends State<ImportedEntriesScreen> {
                                     ),
                                     Text(
                                       '${isDebit ? "Udhaar (Debit)" : "Wasooli (Credit)"}'
-                                      '${d != null ? " · ${dateFormat.format(d)}" : ""}',
+                                      '${d != null ? " Â· ${dateFormat.format(d)}" : ""}',
                                       style: const TextStyle(color: Colors.grey, fontSize: 12),
                                     ),
                                     const SizedBox(height: 10),
