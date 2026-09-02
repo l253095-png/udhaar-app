@@ -2,6 +2,7 @@ const express = require('express');
 const { google } = require('googleapis');
 const path = require('path');
 const { db } = require('../config/db');
+const { nowPkt, todayPkt, buildPktTimestamp } = require('../utils/dateHelper');
 const { authenticate, ownerOnly } = require('../middleware/auth');
 
 const router = express.Router();
@@ -284,10 +285,16 @@ function findBestFuzzyMatch(sheetName, allCustomers) {
   return bestScore > 0 ? { customer: best, confidence: 'low' } : null;
 }
 
-async function applyTransaction(customerId, type, amount, source, userId, isoDate, syncTab) {
+async function applyTransaction(customerId, type, amount, source, userId, isoDate, syncTab, entryDateTime) {
+  // entryDateTime, if given, is a full 'YYYY-MM-DD HH:MM:SS' PKT timestamp
+  // chosen by the owner (backdated or not). If not given, we default to
+  // "right now" in PKT — never to SQLite's own default (which is UTC on Turso).
+  const finalTimestamp = entryDateTime || nowPkt();
+  const finalDateOnly = finalTimestamp.slice(0, 10);
+
   const existing = await db.execute({
     sql: "SELECT * FROM transactions WHERE customer_id = ? AND type = ? AND amount = ? AND source = ? AND date(created_at) = date(?)",
-    args: [customerId, type, amount, source, isoDate || new Date().toISOString().slice(0, 10)]
+    args: [customerId, type, amount, source, isoDate || finalDateOnly]
   });
 
   if (existing.rows.length > 0) {
@@ -299,8 +306,8 @@ async function applyTransaction(customerId, type, amount, source, userId, isoDat
   const balanceChange = type === 'udhaar' ? amount : -amount;
   await db.batch([
     {
-      sql: 'INSERT INTO transactions (customer_id, type, amount, source, sync_tab, created_by) VALUES (?, ?, ?, ?, ?, ?)',
-      args: [customerId, type, amount, source, syncTab || null, userId]
+      sql: 'INSERT INTO transactions (customer_id, type, amount, source, sync_tab, created_by, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)',
+      args: [customerId, type, amount, source, syncTab || null, userId, finalTimestamp]
     },
     {
       sql: 'UPDATE customers SET balance = balance + ? WHERE id = ?',
@@ -853,8 +860,11 @@ router.get('/staged-count', async (req, res) => {
 });
 
 // POST /api/sheets-sync/staged/:id/approve
+// Body (optional): { entryDate: 'YYYY-MM-DD', entryTime: 'HH:MM' }
+// If entryDate is not sent, defaults to "right now" in Pakistan time.
 router.post('/staged/:id/approve', async (req, res) => {
   try {
+    const { entryDate, entryTime } = req.body;
     const stagedRes = await db.execute({
       sql: 'SELECT * FROM staged_entries WHERE id = ?',
       args: [req.params.id]
@@ -862,8 +872,9 @@ router.post('/staged/:id/approve', async (req, res) => {
     const staged = stagedRes.rows[0];
     if (!staged) return res.status(404).json({ error: 'Entry not found' });
 
-    const isoDate = todayIsoDate();
-    const updated = await applyTransaction(staged.customer_id, staged.type, staged.amount, 'google_sheet', req.user.id, isoDate, staged.tab_name);
+    const entryDateTime = entryDate ? buildPktTimestamp(entryDate, entryTime) : null;
+    const isoDate = entryDate || todayPkt();
+    const updated = await applyTransaction(staged.customer_id, staged.type, staged.amount, 'google_sheet', req.user.id, isoDate, staged.tab_name, entryDateTime);
     notify(updated, staged.type, staged.amount, updated.balance);
 
     await db.execute({
@@ -907,15 +918,20 @@ router.post('/staged/:id/reject', async (req, res) => {
 });
 
 // POST /api/sheets-sync/staged/bulk-approve
+// Body (optional): { entryDate: 'YYYY-MM-DD', entryTime: 'HH:MM' }
+// Same date/time is applied to every currently-staged entry in this batch.
+// If entryDate is not sent, defaults to "right now" in Pakistan time (old behavior).
 router.post('/staged/bulk-approve', async (req, res) => {
   try {
+    const { entryDate, entryTime } = req.body;
     const allStagedRes = await db.execute('SELECT * FROM staged_entries');
     const allStaged = allStagedRes.rows;
-    const isoDate = todayIsoDate();
+    const entryDateTime = entryDate ? buildPktTimestamp(entryDate, entryTime) : null;
+    const isoDate = entryDate || todayPkt();
     let approvedCount = 0;
 
     for (const staged of allStaged) {
-      const updated = await applyTransaction(staged.customer_id, staged.type, staged.amount, 'google_sheet', req.user.id, isoDate, staged.tab_name);
+      const updated = await applyTransaction(staged.customer_id, staged.type, staged.amount, 'google_sheet', req.user.id, isoDate, staged.tab_name, entryDateTime);
       notify(updated, staged.type, staged.amount, updated.balance);
       await db.execute({
         sql: 'DELETE FROM staged_entries WHERE id = ?',
